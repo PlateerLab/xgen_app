@@ -1,415 +1,152 @@
-# 🚀 XGEN
+# XGEN App - Tauri + Next.js 데스크탑 앱 설정 및 실행 가이드
 
-<div align="center">
-  <img src="./img/main.png" alt="XGEN Main Screen" width="100%" style="border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" />
-</div>
+## 개요
+XGEN은 Next.js로 개발된 AI 워크플로우 플랫폼을 Tauri로 래핑하여 데스크탑 애플리케이션으로 만든 프로젝트입니다. 드래그 앤 드롭으로 AI 파이프라인을 구축하고 실시간으로 상호작용할 수 있는 차세대 AI 워크플로우 플랫폼입니다.
 
-<br />
+## 사전 요구사항
 
-> **Next-Generation AI Workflow Platform** - Build AI pipelines with drag-and-drop and interact in real-time
-
-[![Next.js](https://img.shields.io/badge/Next.js-15.3.2-black?style=flat-square&logo=next.js)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19.0.0-blue?style=flat-square&logo=react)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![SCSS](https://img.shields.io/badge/SCSS-Styling-pink?style=flat-square&logo=sass)](https://sass-lang.com/)
-
-XGEN is an innovative platform that allows you to build AI applications with a **visual workflow editor**. You can design LangChain-based AI pipelines simply through **drag-and-drop** without complex coding, and communicate naturally with AI through **real-time chat**.
-
-## ✨ Key Features
-
-### 🎨 **Visual Canvas Editor**
-
-<div align="center">
-  <img src="./img/canvas.png" alt="XGEN Canvas Editor" width="80%" style="border-radius: 8px; margin: 20px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.1);" />
-  <p><em>🖱️ Visually compose AI workflows with intuitive drag-and-drop interface</em></p>
-</div>
-
-- **LangChain Node Support**: Rich AI nodes including ChatOpenAI, ChatAnthropic, VectorStore
-- **Drag & Drop**: Intuitive interface for workflow composition
-- **Real-time Connections**: Visual representation of data flow between nodes
-- **Auto Save**: Preserve work content with LocalStorage-based system
-- **Template System**: Pre-built workflow templates provided
-
-<div align="center">
-  <img src="./img/template.png" alt="Workflow Templates" width="60%" style="border-radius: 8px; margin: 10px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);" />
-  <p><em>⚡ Quickly start workflows with various templates</em></p>
-</div>
-
-### 💬 **AI Chat Interface**
-
-- **Workflow Integration**: Real-time conversation with built workflows
-- **Typing Animation**: Elegant UI for displaying AI responses
-- **Multi-Workflow**: Select from multiple workflows for conversation
-- **Chat History**: Save and manage conversation records
-- **React Hot Toast**: Enhanced user experience with notification system
-
-### 📊 **Integrated Management Center**
-
-<div align="center">
-  <img src="./img/chatdemo.png" alt="Management Center Chat Demo" width="70%" style="border-radius: 8px; margin: 15px 0; box-shadow: 0 3px 12px rgba(0,0,0,0.1);" />
-  <p><em>💬 Test workflows and check chats directly in the management center</em></p>
-</div>
-
-- **Execution Monitoring**: Track workflow execution status and performance
-- **Debug Tools**: Detailed logging system for development environment
-- **Settings Management**: Global settings and API key management
-- **Workflow Playground**: Test environment provided
-- **Completed Workflows**: History management of executed tasks
-
-<div align="center">
-  <img src="./img/resource_monitoring.png" alt="Resource Monitoring" width="70%" style="border-radius: 8px; margin: 15px 0; box-shadow: 0 3px 12px rgba(0,0,0,0.1);" />
-  <p><em>📈 Real-time workflow execution status and resource monitoring</em></p>
-</div>
-
-### ⚡ **High-Performance Architecture**
-
-- **FastAPI Backend**: High-performance API server based on Python
-- **Turbopack**: Fast bundler utilizing Next.js 15
-- **Modular Design**: Scalable component-based structure
-- **Type Safety**: Enhanced development productivity and stability with TypeScript
-
-## 🏗️ Project Structure
-
-```
-plateerag/
-├── src/
-│   ├── app/
-│   │   ├── page.tsx              # Main landing page
-│   │   ├── layout.tsx            # Root layout
-│   │   ├── globals.css           # Global styles
-│   │   ├── HomePage.module.scss  # Homepage-specific styles
-│   │   ├── config.js             # Configuration file (API_BASE_URL, etc.)
-│   │   ├── canvas/               # 🎨 Visual workflow editor
-│   │   │   ├── page.tsx          # Canvas main page
-│   │   │   ├── types.ts          # Canvas type definitions
-│   │   │   ├── components/       # Canvas core components
-│   │   │   │   ├── Canvas.tsx    # Main canvas (ReactFlow-based)
-│   │   │   │   ├── Node.tsx      # AI node component
-│   │   │   │   ├── Edge.tsx      # Connection line component
-│   │   │   │   ├── Header.tsx    # Canvas header (save/load)
-│   │   │   │   ├── SideMenu.tsx  # Side menu container
-│   │   │   │   └── ExecutionPanel.tsx # Workflow execution panel
-│   │   │   ├── constants/        # Node definitions and constants
-│   │   │   │   ├── nodes.js      # LangChain node data
-│   │   │   │   └── workflow/     # Workflow templates
-│   │   │   └── assets/          # Canvas styles (SCSS Modules)
-│   │   ├── chat/                # 💬 AI chat interface
-│   │   │   ├── page.tsx         # Chat main page
-│   │   │   ├── components/      # Chat-related components
-│   │   │   │   ├── ChatInterface.tsx    # Main chat UI
-│   │   │   │   ├── ChatContent.tsx      # Chat content display
-│   │   │   │   └── WorkflowSelection.tsx # Workflow selector
-│   │   │   └── assets/          # Chat styles
-│   │   ├── main/                # 📊 Integrated management center
-│   │   │   ├── page.tsx         # Management center main
-│   │   │   ├── components/      # Management tool components
-│   │   │   │   ├── MainPageContent.tsx  # Main dashboard
-│   │   │   │   ├── Sidebar.tsx          # Sidebar navigation
-│   │   │   │   ├── ContentArea.tsx      # Content area
-│   │   │   │   ├── Executor.tsx         # Workflow executor
-│   │   │   │   ├── Monitor.tsx          # Execution monitoring
-│   │   │   │   ├── Settings.tsx         # Settings management
-│   │   │   │   ├── Playground.tsx       # Test environment
-│   │   │   │   ├── ConfigViewer.tsx     # Configuration viewer
-│   │   │   │   ├── CompletedWorkflows.tsx # Completed workflows
-│   │   │   │   └── CanvasIntroduction.tsx # Canvas introduction
-│   │   │   └── assets/          # Management center styles
-│   │   ├── api/                 # 🔗 API client
-│   │   │   ├── workflowAPI.js   # Workflow execution API
-│   │   │   ├── chatAPI.js       # Chat API
-│   │   │   ├── nodeAPI.js       # Node management API
-│   │   │   └── configAPI.js     # Configuration API
-│   │   ├── data/                # 📊 Data management
-│   │   │   └── chatData.js      # Chat data model
-│   │   ├── utils/               # 🛠️ Common utilities
-│   │   │   ├── logger.ts        # Debug logger system
-│   │   │   ├── generateSha1Hash.ts # Hash generator
-│   │   │   └── debug-guide.js   # Debug guide
-│   │   └── _common/             # Common components
-│   │       └── components/
-│   │           ├── ToastProvider.jsx    # Notification system
-│   │           ├── nodeHook.ts          # Node management hook
-│   │           ├── sidebarConfig.ts     # Sidebar configuration
-│   │           └── workflowStorage.js   # Workflow storage
-│   └── public/                  # Static files (icons, images)
-├── package.json                 # Project configuration and dependencies
-├── next.config.ts              # Next.js configuration
-├── tsconfig.json               # TypeScript configuration
-├── eslint.config.mjs           # ESLint configuration
-├── postcss.config.mjs          # PostCSS configuration
-├── DEBUG_GUIDE.md              # Debug system usage guide
-└── README.md                   # Project documentation
-```
-
-## 🤖 Supported AI Nodes (Planned)
-
-XGEN supports various AI nodes from the **LangChain** ecosystem:
-
-### 💬 **Chat Models**
-
-- **ChatOpenAI**: Support for GPT-4o, GPT-4, GPT-3.5 Turbo
-- **ChatAnthropic**: Claude model series
-- **Temperature Control**: Control creativity and consistency
-- **Stop Sequence**: Output control options
-
-### 🔗 **Chains & Agents**
-
-- **LLMChain**: Basic language model chain
-- **ConversationChain**: Conversational chain
-- **Agent**: Autonomous AI agent
-- **Tools**: External tool integration
-
-### 📚 **Memory & Storage**
-
-- **VectorStore**: Vector-based document storage
-- **Memory**: Conversation memory management
-- **Document Loaders**: Load various document formats
-
-### 🔄 **Utility Nodes**
-
-- **Input/Output**: Data input/output nodes
-- **Transform**: Data transformation nodes
-- **Conditional**: Conditional branching nodes
-
-## 🚀 Quick Start
-
-### 1. Environment Requirements
-
-- **Node.js** 18.17 or higher
-- **npm**, **yarn**, **pnpm** or **bun**
-
-### 2. Installation and Running
-
+### 1. Rust 설치
 ```bash
-# Clone repository
-git clone https://github.com/your-org/plateerag.git
-cd plateerag
+# Rust 설치 (공식 인스톨러 사용)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Install dependencies
+# 설치 후 환경 변수 적용
+source ~/.cargo/env
+
+# 설치 확인
+rustc --version
+cargo --version
+```
+
+### 2. Node.js 설치 (18.17 이상)
+#### macOS (Homebrew)
+```bash
+brew install node
+```
+
+#### Ubuntu/Debian
+```bash
+sudo apt update
+sudo apt install nodejs npm
+```
+
+#### Windows (Chocolatey)
+```bash
+choco install nodejs
+```
+
+#### 공식 인스톨러
+[Node.js 공식 웹사이트](https://nodejs.org/)에서 LTS 버전 다운로드 및 설치
+
+### 3. 시스템별 Tauri 의존성
+
+#### macOS
+```bash
+# Xcode Command Line Tools 설치
+xcode-select --install
+```
+
+#### Ubuntu/Debian
+```bash
+sudo apt update
+sudo apt install libwebkit2gtk-4.0-dev \
+    build-essential \
+    curl \
+    wget \
+    libssl-dev \
+    libgtk-3-dev \
+    libayatana-appindicator3-dev \
+    librsvg2-dev
+```
+
+#### Arch Linux
+```bash
+sudo pacman -S webkit2gtk base-devel curl wget openssl gtk3 libappindicator-gtk3 librsvg
+```
+
+#### Fedora
+```bash
+sudo dnf groupinstall "C Development Tools and Libraries"
+sudo dnf install webkit2gtk3-devel openssl-devel curl wget gtk3-devel libappindicator-gtk3-devel librsvg2-devel
+```
+
+#### Windows
+- Microsoft Visual Studio C++ Build Tools 설치
+- 또는 Visual Studio Community 2019/2022 (C++ 워크로드 포함)
+- WebView2 런타임이 설치되어 있는지 확인 (Windows 11에는 기본 설치됨)
+
+## 프로젝트 설정
+
+### 1. 저장소 클론
+```bash
+# X2bee의 xgen_app 프로젝트 클론
+git clone https://github.com/X2bee/xgen_app.git
+cd xgen_app
+```
+
+### 2. Tauri CLI 설치
+```bash
+# Rust를 통한 Tauri CLI 설치 (권장)
+cargo install tauri-cli
+
+# 또는 npm을 통해 설치
+npm install -g @tauri-apps/cli
+```
+
+### 3. 프론트엔드 의존성 설치
+```bash
+# npm 사용
 npm install
-# or
+
+# 또는 yarn 사용
 yarn install
 
-# Run development server
-npm run dev
-# or
-yarn dev
+# 또는 pnpm 사용
+pnpm install
 ```
 
-### 3. Check in Browser
+### 4. Rust 의존성 설치 (자동)
+Tauri CLI가 필요시 자동으로 Rust 의존성을 설치합니다.
 
-Meet XGEN at [http://localhost:3000](http://localhost:3000)! 🎉
+## 개발 환경 실행
 
-## 📖 Usage Guide
-
-### 🎯 Creating Workflows
-
-1. Access **Canvas Editor** (`/canvas`)
-2. Select **AI Node** from left node panel
-3. Place on canvas with **drag & drop**
-4. Create **connections** between nodes to compose workflow
-5. **Save** and **run test**
-
-### 💬 Chatting with AI
-
-1. Access **Chat Interface** (`/chat`)
-2. Click **Select Workflow** button
-3. Choose desired workflow
-4. Start **natural language conversation**
-5. Check AI responses in real-time
-
-### 📊 Managing Workflows
-
-<div align="center">
-  <img src="./img/workflow_control.png" alt="Workflow Control and Management" width="75%" style="border-radius: 8px; margin: 15px 0; box-shadow: 0 3px 12px rgba(0,0,0,0.1);" />
-  <p><em>🎛️ Easily manage and control workflows with intuitive interface</em></p>
-</div>
-
-1. Access **Management Center** (`/main`)
-2. Check execution status in **Performance Dashboard**
-3. Analyze debugging information in **Execution Logs**
-4. Optimize workflows in **Settings**
-
-<div align="center">
-  <img src="./img/setting.png" alt="Settings Management" width="70%" style="border-radius: 8px; margin: 15px 0; box-shadow: 0 3px 12px rgba(0,0,0,0.1);" />
-  <p><em>⚙️ Conveniently manage all necessary settings in one place</em></p>
-</div>
-
-## 🛠️ Development Guide
-
-### Script Commands
-
+### 1. Tauri 개발 모드 실행
 ```bash
-# Development server (using Turbopack)
-npm run dev
+# Tauri 개발 서버 시작 (프론트엔드 + 백엔드 통합)
+npm run tauri dev
 
-# Production build
-npm run build
+# 또는 yarn 사용
+yarn tauri dev
 
-# Run production server
-npm run start
-
-# Code linting
-npm run lint
-
-# Auto fix code
-npm run lint:fix
-
-# Code formatting
-npm run format
+# 또는 Cargo 직접 사용
+cargo tauri dev
 ```
 
-### Tech Stack
+이 명령어는:
+- Next.js 개발 서버를 시작합니다 (보통 http://localhost:3000)
+- Rust 백엔드를 컴파일합니다
+- Tauri 데스크탑 앱 윈도우를 엽니다
 
-#### 🎨 **Frontend**
+### 2. 개발 중 핫 리로드
+- **프론트엔드 변경**: Next.js 파일 수정 시 자동 리로드
+- **백엔드 변경**: `src-tauri/src/` 내 Rust 파일 수정 시 자동 재컴파일 및 앱 재시작
 
-- **Next.js 15.3.2**: Full-stack React framework based on App Router
-- **React 19**: Utilizing latest React features (Concurrent Features, Server Components)
-- **TypeScript**: Enhanced type safety and development productivity
-- **SCSS Modules**: Component-based style encapsulation
-- **React Icons**: Utilizing Feather Icons set
-- **React Hot Toast**: Elegant notification system
+## 빌드 및 배포
 
-#### 🔧 **Development Tools**
-
-- **Turbopack**: Fast bundler for Next.js 15 (dev mode)
-- **ESLint**: Code quality and consistency management
-- **Prettier**: Automatic code formatting
-- **Husky**: Quality management through Git hooks
-
-#### 🌐 **Backend Integration**
-
-- **FastAPI**: High-performance API server based on Python
-- **LangChain**: Framework for AI chain composition
-- **RESTful API**: Standard HTTP API communication
-
-#### 📊 **Data Management**
-
-- **LocalStorage**: Client-side data storage
-- **React State**: Application state management
-- **JSON**: Data serialization and API communication
-
-### Coding Style
-
-- Use **TypeScript** strict mode
-- **ESLint + Prettier** automatic formatting
-- Style encapsulation with **SCSS Modules**
-- **Component-based** architecture
-
-### 🔍 Debug System
-
-XGEN provides a **smart debug logger**:
-
-```javascript
-import { devLog, prodLog } from '@/app/utils/logger';
-
-// Output only in development environment
-devLog.log('Debug information');
-devLog.error('Development error');
-
-// Always output (for critical errors)
-prodLog.error('Critical error');
-```
-
-#### Browser Console Control
-
-```javascript
-// Force enable debug logs
-enableDebugLogs();
-
-// Disable debug logs
-disableDebugLogs();
-
-// Reset to environment settings
-resetDebugLogs();
-
-// Check current environment info
-checkEnvironment();
-```
-
-For detailed usage, refer to [`DEBUG_GUIDE.md`](DEBUG_GUIDE.md).
-
-## 📸 Screenshot Gallery
-
-<div align="center">
-
-### 🎨 Canvas Editor
-
-<img src="./img/canvas.png" alt="Canvas Editor" width="45%" style="display: inline-block; margin: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);" />
-<img src="./img/template.png" alt="Template Selection" width="45%" style="display: inline-block; margin: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);" />
-
-### 📊 Management Center
-
-<img src="./img/chatdemo.png" alt="Chat Demo" width="45%" style="display: inline-block; margin: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);" />
-<img src="./img/resource_monitoring.png" alt="Resource Monitoring" width="45%" style="display: inline-block; margin: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);" />
-
-### ⚙️ Workflow Management
-
-<img src="./img/workflow_control.png" alt="Workflow Control" width="45%" style="display: inline-block; margin: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);" />
-<img src="./img/setting.png" alt="Settings Management" width="45%" style="display: inline-block; margin: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);" />
-
-</div>
-
-## 🌟 Main Pages
-
-| Page           | Path      | Description                           |
-| -------------- | --------- | ------------------------------------- |
-| **Home**       | `/`       | Project introduction and main landing |
-| **Canvas**     | `/canvas` | Visual workflow editor                |
-| **Chat**       | `/chat`   | AI workflow chat interface            |
-| **Management** | `/main`   | Workflow management and monitoring    |
-
-## 🤝 Contributing
-
-Thank you for contributing to the XGEN project!
-
-### How to Contribute
-
-1. **Fork** this repository
-2. Create **Feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Commit changes** (`git commit -m 'Add amazing feature'`)
-4. **Push to branch** (`git push origin feature/amazing-feature`)
-5. Create **Pull Request**
-
-### Development Environment Setup
-
+### 1. 프로덕션 빌드
 ```bash
-# Install development dependencies
-npm install
+# 전체 애플리케이션 빌드 (프론트엔드 + 데스크탑 앱)
+npm run tauri build
 
-# Setup pre-commit hooks
-npm run prepare
+# 또는 yarn 사용
+yarn tauri build
 
-# Check code quality
-npm run lint
-npm run format
+# 또는 Cargo 직접 사용
+cargo tauri build
 ```
 
-## 📄 License
-
-This project follows [GPL-3.0](LICENSE).
-
-## 👥 Development Team
-
-- **Plateer AI-LAB**
-- **CocoRoF** - Jang Ha-ryeom
-- **haesookimDev** - Kim Hae-su
-- **SonAIengine** - Son Seong-jun (AI-LAB Part Leader)
-- **daunle** - Lee Da-un
-
-## 🔗 Related Links
-
-- **GitHub Repository**: [XGEN Repository](https://github.com/plateer/plateerag)
-- **Development Documentation**: [`DEBUG_GUIDE.md`](DEBUG_GUIDE.md) - Debug system usage guide
-- **Issue Reports**: Bug reports and feature requests through GitHub Issues
-- **Tech Blog**: [Plateer Tech Blog](https://x2bee.tistory.com/)
-
----
-
-<div align="center">
-
-**Made with ❤️ by Plateer AI-LAB**
-
-[⭐ Star this repo](https://github.com/X2bee/PlateeRAG) • [🐛 Report Bug](https://github.com/X2bee/PlateeRAG/issues) • [💡 Request Feature](https://github.com/X2bee/PlateeRAG/issues)
-
-</div>
+### 2. 빌드 결과물 위치
+빌드 완료 후 다음 위치에서 설치 파일을 찾을 수 있습니다:
+- **Windows**: `src-tauri/target/release/bundle/msi/` 또는 `src-tauri/target/release/bundle/nsis/`
+- **macOS**: `src-tauri/target/release/bundle/dmg/` 및 `src-tauri/target/release/bundle/macos/`
+- **Linux**: `src-tauri/target/release/bundle/deb/`, `src-tauri/target/release/bundle/rpm/`, `src-tauri/target/release/bundle/appimage/`
