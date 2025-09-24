@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
 
     // 이미지 최적화 비활성화 (Tauri에서 필요)
     images: {
-        unoptimized: true
+        unoptimized: true,
     },
     // NOTE: Next.js `rewrites`는 정적 `next export` 결과물(프로덕션)에서는 동작하지 않습니다.
     // Tauri 환경에서는 rewrites에 의존하지 않고 프런트엔드에서 명시적인
