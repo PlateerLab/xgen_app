@@ -36,9 +36,10 @@ interface NodeData {
 
 interface DraggableNodeItemProps {
     nodeData: NodeData;
+    onDoubleClick?: (nodeData: NodeData) => void;
 }
 
-const DraggableNodeItem: React.FC<DraggableNodeItemProps> = ({ nodeData }) => {
+const DraggableNodeItem: React.FC<DraggableNodeItemProps> = ({ nodeData, onDoubleClick }) => {
     const onDragStart = (event: DragEvent<HTMLDivElement>): void => {
         const nodeDataString = JSON.stringify(nodeData);
         event.dataTransfer.setData('application/json', nodeDataString);
@@ -51,6 +52,7 @@ const DraggableNodeItem: React.FC<DraggableNodeItemProps> = ({ nodeData }) => {
             className={styles.menuItem}
             draggable="true"
             onDragStart={onDragStart}
+            onDoubleClick={() => onDoubleClick && onDoubleClick(nodeData)}
             style={{ cursor: 'grab' }}
         >
             <span>{nodeData.nodeName}</span>

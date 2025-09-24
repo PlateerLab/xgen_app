@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import styles from '@/app/canvas/assets/ExecutionPanel.module.scss';
-import { LuPlay, LuTrash2, LuCircleX, LuChevronUp, LuChevronDown } from 'react-icons/lu';
+import { LuPlay, LuTrash2, LuCircleX, LuChevronUp, LuChevronDown } from '@/app/_common/icons/canvasIcons';
 import {
     type OutputRendererProps,
     type ExecutionPanelProps,

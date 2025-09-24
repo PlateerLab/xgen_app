@@ -14,8 +14,9 @@
     ],
     "author": "Plateer AI-LAB, CocoRoF, haesookimDev",
     "scripts": {
-        "dev": "next dev --turbopack",
+        "dev": "next dev",
         "build": "next build",
+        "export": "next build",
         "start": "next start",
         "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
         "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
@@ -52,6 +53,7 @@
     "devDependencies": {
         "@next/eslint-plugin-next": "^15.4.1",
         "@tailwindcss/postcss": "^4",
+        "@tauri-apps/cli": "^2.8.4",
         "@types/node": "^20",
         "@types/react": "^19",
         "@types/react-dom": "^19",

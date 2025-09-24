@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from '@/app/canvas/assets/WorkflowPanel.module.scss';
 import sideMenuStyles from '@/app/canvas/assets/SideMenu.module.scss';
-import { LuArrowLeft, LuFolderOpen, LuDownload, LuRefreshCw, LuCalendar, LuTrash2 } from "react-icons/lu";
+import { LuArrowLeft, LuFolderOpen, LuDownload, LuRefreshCw, LuCalendar, LuTrash2 } from '@/app/_common/icons/canvasIcons';
 import { listWorkflows, loadWorkflow, deleteWorkflow } from '@/app/_common/api/workflow/workflowAPI';
 import { getWorkflowState } from '@/app/_common/utils/workflowStorage';
 import { devLog } from '@/app/_common/utils/logger';

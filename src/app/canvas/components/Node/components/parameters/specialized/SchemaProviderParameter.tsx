@@ -1,5 +1,5 @@
 import React from 'react';
-import { LuX } from 'react-icons/lu';
+import { LuX } from '@/app/_common/icons/canvasIcons';
 import styles from '@/app/canvas/assets/Node.module.scss';
 import { createCommonEventHandlers } from '../../../utils/nodeUtils';
 import type { Parameter } from '@/app/canvas/types';

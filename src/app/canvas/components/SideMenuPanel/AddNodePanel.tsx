@@ -3,9 +3,7 @@ import React, { useState, useEffect } from 'react';
 import styles from '@/app/canvas/assets/SideMenu.module.scss';
 import NodeList from '@/app/canvas/components/Helper/NodeList';
 import DraggableNodeItem from '@/app/canvas/components/Helper/DraggableNodeItem';
-import { LuSearch, LuArrowLeft, LuBrainCircuit, LuShare2, LuWrench, LuX, LuRefreshCw } from 'react-icons/lu';
-import { SiLangchain } from "react-icons/si";
-import { GiRollingEnergy } from "react-icons/gi";
+import { LuSearch, LuArrowLeft, LuBrainCircuit, LuShare2, LuWrench, LuX, LuRefreshCw, SiLangchain, GiRollingEnergy } from '@/app/_common/icons/canvasIcons';
 import type {
     NodeData,
     NodeFunction,
@@ -28,7 +26,8 @@ const AddNodePanel: React.FC<AddNodePanelProps> = ({
     nodeSpecs = [],
     nodesLoading = false,
     nodesError = null,
-    onRefreshNodes
+    onRefreshNodes,
+    onAddNode
 }) => {
     const [activeTab, setActiveTab] = useState<string | null>(null);
 
@@ -106,7 +105,7 @@ const AddNodePanel: React.FC<AddNodePanelProps> = ({
                 {(activeTabData as NodeCategory | undefined)?.functions?.map((func: NodeFunction) => (
                     <NodeList key={func.functionId} title={func.functionName}>
                         {func.nodes?.map((node: NodeData) => (
-                            <DraggableNodeItem key={node.id} nodeData={node} />
+                            <DraggableNodeItem key={node.id} nodeData={node} onDoubleClick={() => onAddNode && onAddNode(node)} />
                         ))}
                     </NodeList>
                 ))}

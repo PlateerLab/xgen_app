@@ -1,85 +1,18 @@
-'use client';
+import React, { Suspense } from 'react';
+import styles from './Embed.module.scss';
+import EmbedClient from '../EmbedClient';
 
-import React, { useState, useEffect, Suspense } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
-import ChatInterface from '@/app/main/chatSection/components/ChatInterface';
-import { Workflow } from '@/app/main/chatSection/components/types';
-import styles from './Embed.module.scss'; // 임베드 전용 스타일
+export async function generateStaticParams() {
+    // 빌드 시 정적으로 생성할 chatId 목록을 반환합니다.
+    // 최소한 데모용 chatId를 하나 등록하면 정적 export 빌드가 통과합니다.
+    return [{ chatId: 'demo' }];
+}
 
-const EmbedChatContent = () => {
-    const params = useParams();
-    const searchParams = useSearchParams();
-    const chatId = params.chatId as string;
-    const workflowNameFromUrl = searchParams.get('workflowName');
-
-    const [workflow, setWorkflow] = useState<Workflow | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        if (!chatId) {
-            setLoading(false);
-            return;
-        }
-        if (!workflowNameFromUrl) {
-            setLoading(false)
-            return;
-        }
-        const fetchWorkflow = async () => {
-            try {
-                const fetchedWorkflow: Workflow | null = {
-                                    id: chatId,
-                                    name: workflowNameFromUrl,
-                                    filename: workflowNameFromUrl,
-                                    author: 'Unknown',
-                                    nodeCount: 0,
-                                    status: 'active' as const,
-                                };
-                if (workflowNameFromUrl) {
-                    fetchedWorkflow.name = workflowNameFromUrl;
-                }
-                setWorkflow(fetchedWorkflow);
-            } catch (err) {
-                 if (workflowNameFromUrl) {
-                    setWorkflow({
-                        id: chatId,
-                        name: workflowNameFromUrl,
-                        status: 'active',
-                        author: 'Unknown',
-                        nodeCount: 0,
-                    });
-                }
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchWorkflow();
-    }, [chatId, workflowNameFromUrl]);
-
-    if (loading || !workflow) {
-        return <div className={styles.loader}></div>;
-    }
-
-    return (
-        <div className={styles.embedContainer}>
-            <ChatInterface
-                mode="deploy"
-                onBack={() => { } }
-                onChatStarted={() => { } }
-                hideBackButton={true}
-                existingChatData={undefined}
-                workflow={workflow}
-                user_id = {chatId}
-                />
-        </div>
-    );
-};
-
-const EmbedPage = () => {
+export default function Page(props: any) {
+    const params = props?.params;
     return (
         <Suspense fallback={<div className={styles.loader}></div>}>
-            <EmbedChatContent />
+            <EmbedClient params={params} />
         </Suspense>
     );
-};
-
-export default EmbedPage;
+}

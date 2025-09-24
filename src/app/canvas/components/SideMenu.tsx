@@ -4,7 +4,7 @@ import styles from '@/app/canvas/assets/SideMenu.module.scss';
 import AddNodePanel from '@/app/canvas/components/SideMenuPanel/AddNodePanel';
 import WorkflowPanel from '@/app/canvas/components/SideMenuPanel/WorkflowPanel';
 import TemplatePanel from '@/app/canvas/components/SideMenuPanel/TemplatePanel';
-import { LuCirclePlus, LuCircleHelp, LuSettings, LuLayoutGrid, LuMessageSquare, LuLayoutTemplate } from "react-icons/lu";
+import { LuCirclePlus, LuCircleHelp, LuSettings, LuLayoutGrid, LuMessageSquare, LuLayoutTemplate } from '@/app/_common/icons/canvasIcons';
 
 // Type definitions
 type MenuView = 'main' | 'addNodes' | 'chat' | 'workflow' | 'template';
@@ -22,6 +22,7 @@ interface SideMenuProps {
     nodesLoading?: boolean;
     nodesError?: string | null;
     onRefreshNodes?: () => Promise<void>;
+    onAddNode?: (nodeData: any) => void;
 }
 
 // Main menu UI
@@ -67,7 +68,8 @@ const SideMenu: React.FC<SideMenuProps> = ({
     nodeSpecs,
     nodesLoading,
     nodesError,
-    onRefreshNodes
+    onRefreshNodes,
+    onAddNode
 }) => {
     const [view, setView] = useState<MenuView>('main');
 
@@ -90,6 +92,7 @@ const SideMenu: React.FC<SideMenuProps> = ({
                     nodesLoading={nodesLoading}
                     nodesError={nodesError}
                     onRefreshNodes={onRefreshNodes}
+                    onAddNode={onAddNode}
                 />
             )}
             {view === 'workflow' && (

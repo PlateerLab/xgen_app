@@ -603,18 +603,36 @@ function CanvasPageContent() {
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
 
-        const hasValidData = e.dataTransfer.types.includes('application/json');
-        const hasOnlyText = e.dataTransfer.types.includes('text/plain') &&
-            !e.dataTransfer.types.includes('application/json');
+        // 일부 환경(예: 데스크탑 웹뷰)에서는 drag 시 types에 'application/json'이 빠질 수 있으므로
+        // text/plain에 JSON 문자열이 담겨있을 경우에도 허용하도록 유연하게 처리합니다.
+        try {
+            const typesList = Array.from(e.dataTransfer.types || [] as any);
 
-        if (hasValidData) {
-            // 유효한 JSON 데이터 타입인 경우 드롭을 허용
+            if (typesList.includes('application/json')) {
+                e.dataTransfer.dropEffect = 'copy';
+                return;
+            }
+
+            if (typesList.includes('text/plain')) {
+                // 드래그 중 text/plain 데이터가 JSON인지 시도해보고, JSON이면 허용
+                const txt = e.dataTransfer.getData('text/plain') || '';
+                if (txt && txt.trim().startsWith('{')) {
+                    try {
+                        JSON.parse(txt);
+                        e.dataTransfer.dropEffect = 'copy';
+                        return;
+                    } catch (_) {
+                        // JSON 파싱 실패라면 외부 텍스트 드래그일 수 있으니 거부
+                        e.dataTransfer.dropEffect = 'none';
+                        return;
+                    }
+                }
+            }
+
+            // 그 외의 경우는 기본적으로 드롭 허용
             e.dataTransfer.dropEffect = 'copy';
-        } else if (hasOnlyText) {
-            // 텍스트만 있는 경우 드롭을 거부 (브라우저/외부 앱에서 드래그)
-            e.dataTransfer.dropEffect = 'none';
-        } else {
-            // 기타 경우는 기본적으로 허용 (이전 동작 유지)
+        } catch (error) {
+            // 예외가 발생해도 드롭을 허용하도록 안전하게 처리
             e.dataTransfer.dropEffect = 'copy';
         }
     };
@@ -931,6 +949,26 @@ function CanvasPageContent() {
                         nodesLoading={nodesLoading}
                         nodesError={nodesError}
                         onRefreshNodes={exportAndRefreshNodes}
+                        onAddNode={(nodeData) => {
+                            try {
+                                if (!canvasRef.current) return;
+                                // add node at center of canvas container
+                                const containerEl = document.querySelector('[data-canvas-container]') as HTMLElement | null;
+                                if (containerEl) {
+                                    const rect = containerEl.getBoundingClientRect();
+                                    const centerX = rect.left + rect.width / 2;
+                                    const centerY = rect.top + rect.height / 2;
+                                    (canvasRef.current as any).addNode(nodeData, centerX, centerY);
+                                } else {
+                                    // fallback to window center
+                                    const centerX = window.innerWidth / 2;
+                                    const centerY = window.innerHeight / 2;
+                                    (canvasRef.current as any).addNode(nodeData, centerX, centerY);
+                                }
+                            } catch (err) {
+                                // ignore
+                            }
+                        }}
                     />
                 )}
                 <ExecutionPanel

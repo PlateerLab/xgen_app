@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { HistoryEntry, HistoryActionType } from '@/app/canvas/components/Canvas/hooks/useHistoryManagement';
 import styles from '@/app/canvas/assets/HistoryPanel.module.scss';
 import { showHistoryClearWarningKo } from '@/app/_common/utils/toastUtilsKo';
-import { FaTrashAlt } from "react-icons/fa";
+import { FaTrashAlt } from '@/app/_common/icons/canvasIcons';
 
 interface HistoryPanelProps {
     history: HistoryEntry[];

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, ReactNode } from 'react';
 import styles from '@/app/canvas/assets/NodeList.module.scss';
-import { LuChevronDown } from 'react-icons/lu';
+import { LuChevronDown } from '@/app/_common/icons/canvasIcons';
 
 interface NodeListProps {
     title: string;

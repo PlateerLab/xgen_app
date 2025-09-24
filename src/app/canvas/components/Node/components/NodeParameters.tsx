@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { LuPlus, LuRefreshCw } from 'react-icons/lu';
+import { LuPlus, LuRefreshCw } from '@/app/_common/icons/canvasIcons';
 import styles from '@/app/canvas/assets/Node.module.scss';
 import { separateParameters, detectParameterType, createCustomParameter } from '../utils/parameterUtils';
 import { useApiParameters } from '../hooks/useApiParameters';

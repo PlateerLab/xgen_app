@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef, KeyboardEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from '@/app/canvas/assets/Header.module.scss';
-import { LuPanelRightOpen, LuSave, LuCheck, LuX, LuPencil, LuFileText, LuArrowLeft, LuHistory, LuUsers } from "react-icons/lu";
+import { LuPanelRightOpen, LuSave, LuCheck, LuX, LuPencil, LuFileText, LuArrowLeft, LuHistory, LuUsers, FiUpload, BiCodeAlt } from '@/app/_common/icons/canvasIcons';
 import { getWorkflowName, saveWorkflowName } from '@/app/_common/utils/workflowStorage';
-import { FiUpload } from 'react-icons/fi';
-import { BiCodeAlt } from "react-icons/bi";
 import { showHistoryClearWarningKo } from '@/app/_common/utils/toastUtilsKo';
 
 interface HeaderProps {

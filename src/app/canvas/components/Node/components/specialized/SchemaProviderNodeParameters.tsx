@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LuPlus } from 'react-icons/lu';
+import { LuPlus } from '@/app/_common/icons/canvasIcons';
 import styles from '@/app/canvas/assets/Node.module.scss';
 import { separateParameters } from '../../utils/parameterUtils';
 import { useParameterEditing } from '../../hooks/useParameterEditing';

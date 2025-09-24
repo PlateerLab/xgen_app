@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { showErrorToastKo } from '@/app/_common/utils/toastUtilsKo';
 import styles from '@/app/canvas/assets/TemplatePreview.module.scss';
 import MiniCanvas from '@/app/canvas/components/SideMenuPanel/MiniCanvas';
-import { LuX, LuCopy } from "react-icons/lu";
+import { LuX, LuCopy } from '@/app/_common/icons/canvasIcons';
 import { devLog } from '@/app/_common/utils/logger';
 import type {
     Position,

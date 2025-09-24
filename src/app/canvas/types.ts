@@ -232,6 +232,7 @@ export interface AddNodePanelProps {
     nodesLoading?: boolean;
     nodesError?: string | null;
     onRefreshNodes?: () => Promise<void>;
+    onAddNode?: (nodeData: NodeData) => void;
 }
 
 export interface TemplatePanelProps {
@@ -300,6 +301,7 @@ export interface CanvasProps {
 export interface CanvasRef {
     getCanvasState: () => CanvasState;
     addNode: (nodeData: NodeData, clientX: number, clientY: number) => void;
+    addNodeAtCenter?: (nodeData: NodeData) => void;
     loadCanvasState: (state: Partial<CanvasState>) => void;
     loadCanvasStateWithoutView: (state: Partial<CanvasState>) => void;
     loadWorkflowState: (state: Partial<CanvasState>) => void;

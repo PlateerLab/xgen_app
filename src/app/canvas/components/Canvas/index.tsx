@@ -687,6 +687,7 @@ const Canvas = forwardRef<CanvasRef, CanvasProps>(({
         <div
             ref={containerRef}
             className={styles.canvasContainer}
+            data-canvas-container="true"
             onMouseDown={handleCanvasMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}

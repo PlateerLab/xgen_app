@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from '@/app/canvas/assets/WorkflowPanel.module.scss';
 import sideMenuStyles from '@/app/canvas/assets/SideMenu.module.scss';
-import { LuArrowLeft, LuLayoutTemplate, LuPlay, LuCopy } from "react-icons/lu";
+import { LuArrowLeft, LuLayoutTemplate, LuPlay, LuCopy } from '@/app/_common/icons/canvasIcons';
 import TemplatePreview from '@/app/canvas/components/SideMenuPanel/TemplatePreview';
 import { getWorkflowState } from '@/app/_common/utils/workflowStorage';
 import { devLog } from '@/app/_common/utils/logger';

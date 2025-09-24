@@ -1,5 +1,5 @@
 import React from 'react';
-import { LuDownload } from 'react-icons/lu';
+import { LuDownload } from '@/app/_common/icons/canvasIcons';
 import styles from '@/app/canvas/assets/Node.module.scss';
 import { generatePortKey, getConnectedSchemaProvider } from '../utils/nodeUtils';
 import type { NodePortsProps } from '../types';
