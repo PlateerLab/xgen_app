@@ -1,4 +1,6 @@
 # PLATEERAG - AI 워크플로우 시각적 에디터 설정 및 실행 가이드
+<img width="1705" height="1101" alt="image" src="https://github.com/user-attachments/assets/01ac0364-d037-4032-a673-577cf02d40bb" />
+
 
 ## 개요
 PLATEERAG는 드래그 앤 드롭 노드로 AI 기반 애플리케이션을 구축할 수 있는 시각적 워크플로우 에디터입니다. Next.js 기반으로 개발되었으며, Tauri를 통해 데스크탑 애플리케이션으로도 사용할 수 있습니다.
