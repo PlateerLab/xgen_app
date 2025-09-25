@@ -87,6 +87,33 @@ pnpm install
 - Husky 훅 설정: `> plateerag@0.1.0 prepare > husky`
 - 보안 취약점 알림: `npm audit` 명령어로 확인 가능
 
+### 3. 환경 변수 설정 (필수)
+```bash
+# sample.env 파일을 .env로 복사
+cp sample.env .env
+```
+
+**⚠️ 중요**: 백엔드와 통신하기 위해서는 반드시 `sample.env` 파일을 `.env`로 변경한 후 배포해야 합니다.
+
+## 환경 설정 (필수)
+
+**⚠️ 중요**: 애플리케이션을 실행하기 전에 반드시 환경 변수를 설정해야 합니다.
+
+```bash
+# sample.env 파일을 .env로 복사
+cp sample.env .env
+
+# 또는 수동으로 파일명 변경
+mv sample.env .env
+```
+
+`.env` 파일을 열어서 필요한 환경 변수들을 설정하세요:
+- API 엔드포인트 URL
+- 데이터베이스 연결 정보
+- 외부 서비스 API 키 등
+
+백엔드와의 통신을 위해 이 단계는 **필수**입니다.
+
 ## 실행 방법
 
 ### 1. 웹 개발 서버 실행 (권장)
@@ -283,7 +310,16 @@ npm run dev
 
 ## 환경 변수 설정
 
-프로젝트 루트에 `.env.local` 파일을 생성하여 환경 변수를 설정하세요:
+### 기본 환경 변수 파일
+프로젝트에는 `sample.env` 파일이 포함되어 있습니다. 이를 복사하여 사용하세요:
+
+```bash
+# sample.env를 .env로 복사
+cp sample.env .env
+```
+
+### 추가 환경 변수
+필요에 따라 `.env.local` 파일을 생성하여 추가 환경 변수를 설정할 수 있습니다:
 
 ```bash
 # .env.local
