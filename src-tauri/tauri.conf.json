@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.plateer.plateerag",
   "build": {
-    "frontendDist": "../out",
+    "frontendDist": "../frontend/out",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeDevCommand": "cd frontend && npm run dev",
+    "beforeBuildCommand": "cd frontend && npm run build"
   },
   "app": {
     "windows": [
