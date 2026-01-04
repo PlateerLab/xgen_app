@@ -1,17 +1,24 @@
-# xgen_app Dockerfile - 개발 모드
-# 로컬 xgen-frontend 소스를 볼륨 마운트하여 사용
+# xgen_app Dockerfile - Development Mode
+# Hot reload enabled for local development
 
 FROM node:20-alpine
 
+# Install development dependencies
+RUN apk add --no-cache \
+    git \
+    libc6-compat \
+    python3 \
+    make \
+    g++
+
 WORKDIR /app/frontend
 
-# 개발 도구 설치
-RUN apk add --no-cache git
-
-# node_modules가 마운트되지 않도록 별도 볼륨 사용
-# 의존성은 컨테이너 시작 시 설치
+# Environment for development
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV WATCHPACK_POLLING=true
 
 EXPOSE 3000
 
-# 시작 스크립트
-CMD ["sh", "-c", "npm install && npm run dev"]
+# Install dependencies and start dev server
+CMD ["sh", "-c", "npm install --legacy-peer-deps && npm run dev"]

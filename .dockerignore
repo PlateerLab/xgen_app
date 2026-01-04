@@ -1,0 +1,53 @@
+# Dependencies
+node_modules
+frontend/node_modules
+src-tauri/target
+
+# Build outputs
+.next
+out
+dist
+build
+
+# Development files
+*.log
+npm-debug.log*
+.DS_Store
+*.swp
+*.swo
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# Git
+.git
+.gitignore
+
+# Tauri (not needed for web build)
+src-tauri
+
+# Scripts (not needed in container)
+scripts
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Test files
+*.test.*
+*.spec.*
+__tests__
+coverage
+
+# Environment files (sensitive)
+.env
+.env.*
+!.env.example
+
+# Misc
+Dockerfile*
+docker-compose*
+.dockerignore

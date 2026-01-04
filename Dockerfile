@@ -1,63 +1,100 @@
 # xgen_app Dockerfile
-# xgen-frontend 저장소에서 최신 소스를 가져와 빌드
+# Optimized multi-stage build for Next.js standalone deployment
 
-# ===== Stage 1: 프론트엔드 소스 가져오기 및 빌드 =====
+# ===== Stage 1: Dependencies & Build =====
 FROM node:20-alpine AS builder
 
-# Git 설치 (소스 클론용)
-RUN apk add --no-cache git
+# Install dependencies for native modules (sharp, canvas, etc.)
+RUN apk add --no-cache \
+    git \
+    libc6-compat \
+    python3 \
+    make \
+    g++
 
 WORKDIR /app
 
-# 빌드 인자
+# Build arguments
 ARG FRONTEND_REPO=http://gitlab.x2bee.com/tech-team/ai-team/xgen/xgen-frontend.git
 ARG FRONTEND_BRANCH=main
+ARG USE_LOCAL_SOURCE=false
 
-# xgen-frontend 소스 클론
-RUN git clone --depth 1 --branch ${FRONTEND_BRANCH} ${FRONTEND_REPO} frontend
+# Option 1: Clone from git repository
+RUN if [ "$USE_LOCAL_SOURCE" = "false" ]; then \
+    git clone --depth 1 --branch ${FRONTEND_BRANCH} ${FRONTEND_REPO} frontend; \
+    fi
+
+# Option 2: Use local frontend source (when USE_LOCAL_SOURCE=true)
+COPY frontend/ /app/frontend-local/
+RUN if [ "$USE_LOCAL_SOURCE" = "true" ]; then \
+    mv /app/frontend-local /app/frontend; \
+    else \
+    rm -rf /app/frontend-local; \
+    fi
 
 WORKDIR /app/frontend
 
-# next.config.ts에 output: 'standalone' 설정 추가 (Docker 배포용)
-RUN sed -i "s/const nextConfig: NextConfig = {/const nextConfig: NextConfig = {\n    output: 'standalone',/" next.config.ts
+# Add standalone output configuration for Docker deployment
+RUN if ! grep -q "output.*standalone" next.config.ts 2>/dev/null; then \
+    sed -i "s/const nextConfig: NextConfig = {/const nextConfig: NextConfig = {\n    output: 'standalone',/" next.config.ts || \
+    sed -i "s/const nextConfig = {/const nextConfig = {\n    output: 'standalone',/" next.config.ts || \
+    sed -i "s/export default {/export default {\n    output: 'standalone',/" next.config.ts; \
+    fi
 
-# 의존성 설치
-RUN npm ci --legacy-peer-deps
+# Install dependencies with cache optimization
+RUN npm ci --legacy-peer-deps --prefer-offline
 
-# 환경 변수 파일이 있으면 복사 (빌드 시 필요한 경우)
-# COPY .env.production .env.local
-
-# Next.js 빌드
+# Build environment
 ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Build Next.js application
 RUN npm run build
 
-# ===== Stage 2: 프로덕션 실행 환경 =====
+# ===== Stage 2: Production Runtime =====
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+# Install runtime dependencies only
+RUN apk add --no-cache \
+    libc6-compat \
+    wget \
+    && rm -rf /var/cache/apk/*
+
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# 보안: non-root 사용자 생성
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+# Security: Create non-root user
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
 
-# 필수 파일만 복사
+# Copy only necessary production files
 COPY --from=builder /app/frontend/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/frontend/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/frontend/.next/static ./.next/static
 
-# 빌드 정보 기록
+# Build metadata
 ARG BUILD_DATE
 ARG GIT_COMMIT
-RUN echo "BUILD_DATE=${BUILD_DATE}" > /app/build-info.txt && \
-    echo "GIT_COMMIT=${GIT_COMMIT}" >> /app/build-info.txt
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.title="xgen-frontend" \
+      org.opencontainers.image.vendor="Plateer"
 
+RUN echo "BUILD_DATE=${BUILD_DATE:-$(date -Iseconds)}" > /app/build-info.txt \
+    && echo "GIT_COMMIT=${GIT_COMMIT:-unknown}" >> /app/build-info.txt
+
+# Switch to non-root user
 USER nextjs
 
 EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 CMD ["node", "server.js"]

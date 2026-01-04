@@ -1,31 +1,62 @@
-version: '3.8'
-
 services:
   xgen-frontend:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        FRONTEND_REPO: http://gitlab.x2bee.com/tech-team/ai-team/xgen/xgen-frontend.git
-        FRONTEND_BRANCH: main
+        FRONTEND_REPO: ${FRONTEND_REPO:-http://gitlab.x2bee.com/tech-team/ai-team/xgen/xgen-frontend.git}
+        FRONTEND_BRANCH: ${FRONTEND_BRANCH:-main}
+        USE_LOCAL_SOURCE: ${USE_LOCAL_SOURCE:-false}
         BUILD_DATE: ${BUILD_DATE:-}
         GIT_COMMIT: ${GIT_COMMIT:-}
+    image: xgen-frontend:${IMAGE_TAG:-latest}
     container_name: xgen-frontend
     ports:
-      - "3000:3000"
+      - "${HOST_PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_BACKEND_HOST=${NEXT_PUBLIC_BACKEND_HOST:-http://localhost}
       - NEXT_PUBLIC_BACKEND_PORT=${NEXT_PUBLIC_BACKEND_PORT:-8000}
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - xgen-network
 
-  # 개발 모드용 서비스 (필요시 사용)
+  # Local source build (uses frontend/ folder)
+  # docker-compose --profile local up xgen-frontend-local
+  xgen-frontend-local:
+    profiles:
+      - local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USE_LOCAL_SOURCE: "true"
+        BUILD_DATE: ${BUILD_DATE:-}
+        GIT_COMMIT: ${GIT_COMMIT:-}
+    image: xgen-frontend:local
+    container_name: xgen-frontend-local
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BACKEND_HOST=${NEXT_PUBLIC_BACKEND_HOST:-http://localhost}
+      - NEXT_PUBLIC_BACKEND_PORT=${NEXT_PUBLIC_BACKEND_PORT:-8000}
+    restart: unless-stopped
+    networks:
+      - xgen-network
+
+  # Development mode with hot reload
   # docker-compose --profile dev up xgen-frontend-dev
   xgen-frontend-dev:
     profiles:
@@ -35,13 +66,21 @@ services:
       dockerfile: Dockerfile.dev
     container_name: xgen-frontend-dev
     ports:
-      - "3000:3000"
+      - "${HOST_PORT:-3000}:3000"
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_BACKEND_HOST=${NEXT_PUBLIC_BACKEND_HOST:-http://localhost}
       - NEXT_PUBLIC_BACKEND_PORT=${NEXT_PUBLIC_BACKEND_PORT:-8000}
     volumes:
-      # 로컬 xgen-frontend 소스를 마운트하여 핫리로드 지원
-      - ../xgen-frontend:/app/frontend:delegated
-      - /app/frontend/node_modules
+      - ./frontend:/app/frontend:delegated
+      - frontend_node_modules:/app/frontend/node_modules
     restart: unless-stopped
+    networks:
+      - xgen-network
+
+networks:
+  xgen-network:
+    driver: bridge
+
+volumes:
+  frontend_node_modules:

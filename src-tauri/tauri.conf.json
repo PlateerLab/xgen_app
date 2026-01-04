@@ -4,17 +4,17 @@
   "version": "0.1.0",
   "identifier": "com.plateer.plateerag",
   "build": {
-    "frontendDist": "../frontend/out",
+    "frontendDist": "http://localhost:3000",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "cd frontend && npm run dev",
-    "beforeBuildCommand": "cd frontend && npm run build"
+    "beforeBuildCommand": ""
   },
   "app": {
     "windows": [
       {
         "title": "XGEN",
-        "width": 800,
-        "height": 600,
+        "width": 1280,
+        "height": 800,
         "resizable": true,
         "fullscreen": false
       }
