@@ -52,3 +52,31 @@ echo "================================================"
 echo "Commit: $COMMIT_HASH"
 echo "Date: $COMMIT_DATE"
 echo ""
+
+# API 추상화 레이어 확인
+echo "================================================"
+echo "API 추상화 레이어 확인"
+echo "================================================"
+
+API_CORE_DIR="$FRONTEND_DIR/src/app/_common/api/core"
+API_DOMAINS_DIR="$FRONTEND_DIR/src/app/_common/api/domains"
+
+if [ -f "$API_CORE_DIR/TauriApiClient.ts" ]; then
+    echo "[OK] TauriApiClient.ts 존재"
+else
+    echo "[WARN] TauriApiClient.ts 없음 - Tauri IPC 지원 불가"
+fi
+
+if [ -f "$API_CORE_DIR/createApiClient.ts" ]; then
+    echo "[OK] createApiClient.ts 존재"
+else
+    echo "[WARN] createApiClient.ts 없음 - API 팩토리 없음"
+fi
+
+if [ -d "$API_DOMAINS_DIR" ]; then
+    echo "[OK] domains/ 폴더 존재"
+else
+    echo "[INFO] domains/ 폴더 없음 - 레거시 API 사용"
+fi
+
+echo ""
