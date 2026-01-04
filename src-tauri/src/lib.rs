@@ -81,6 +81,10 @@ pub fn run() {
             commands::set_app_mode,
             commands::get_app_mode,
             commands::check_gateway_connection,
+            // Settings Commands (persistent)
+            commands::save_app_settings,
+            commands::load_app_settings,
+            commands::test_gateway_connection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
