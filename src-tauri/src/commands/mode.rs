@@ -47,26 +47,19 @@ pub async fn set_app_mode(
 /// Get the current application mode
 #[tauri::command]
 pub async fn get_app_mode(state: State<'_, Arc<AppState>>) -> Result<AppModeInfo> {
-    log::info!("get_app_mode called");
     let mode = state.app_mode.read().await;
 
     let info = match &*mode {
-        AppMode::Standalone => {
-            log::info!("get_app_mode returning: standalone");
-            AppModeInfo {
-                mode: "standalone".to_string(),
-                server_url: None,
-                connected: false,
-            }
-        }
-        AppMode::Connected { server_url } => {
-            log::info!("get_app_mode returning: connected ({})", server_url);
-            AppModeInfo {
-                mode: "connected".to_string(),
-                server_url: Some(server_url.clone()),
-                connected: true, // TODO: Actually check connection
-            }
-        }
+        AppMode::Standalone => AppModeInfo {
+            mode: "standalone".to_string(),
+            server_url: None,
+            connected: false,
+        },
+        AppMode::Connected { server_url } => AppModeInfo {
+            mode: "connected".to_string(),
+            server_url: Some(server_url.clone()),
+            connected: true, // TODO: Actually check connection
+        },
     };
 
     Ok(info)
