@@ -15,6 +15,7 @@ pub mod state;
 
 use state::AppState;
 use std::sync::Arc;
+use tauri::Manager;
 
 /// Main Tauri application entry point
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -51,6 +52,26 @@ pub fn run() {
             log::info!("Version: {}", env!("CARGO_PKG_VERSION"));
             log::info!("Architecture: mistral.rs centric (GPU auto-detection, MCP client)");
 
+            // Auto-start sidecars in background
+            let app_handle = app.handle().clone();
+            let state = app.state::<Arc<AppState>>().inner().clone();
+
+            tauri::async_runtime::spawn(async move {
+                log::info!("Starting auto-start sidecars...");
+
+                let mut manager = state.sidecar_manager.write().await;
+                let results = manager.start_auto_start_sidecars(&app_handle).await;
+
+                let success_count = results.iter().filter(|r| r.is_ok()).count();
+                let total = results.len();
+
+                log::info!(
+                    "Auto-start complete: {}/{} sidecars started successfully",
+                    success_count,
+                    total
+                );
+            });
+
             Ok(())
         })
         // Register all commands
@@ -77,10 +98,20 @@ pub fn run() {
             commands::set_mcp_server_enabled,
             commands::get_enabled_mcp_count,
             commands::has_enabled_mcp_servers,
-            // Mode Commands
+            // Mode Commands (legacy)
             commands::set_app_mode,
             commands::get_app_mode,
             commands::check_gateway_connection,
+            // Sidecar Commands (xgen-workflow, etc.)
+            commands::start_sidecar,
+            commands::stop_sidecar,
+            commands::stop_all_sidecars,
+            commands::get_sidecar_status,
+            commands::get_all_sidecar_status,
+            commands::list_sidecars,
+            commands::enable_service_mode,
+            commands::enable_standalone_mode,
+            commands::get_current_mode,
             // Settings Commands (persistent)
             commands::save_app_settings,
             commands::load_app_settings,

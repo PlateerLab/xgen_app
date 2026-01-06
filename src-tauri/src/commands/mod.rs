@@ -9,6 +9,7 @@
 //! - mode: Standalone/Connected mode switching
 //! - model: Local model file management
 //! - settings: Persistent app settings (config file)
+//! - sidecar: Python sidecar process management
 
 pub mod gpu;
 pub mod llm;
@@ -16,6 +17,7 @@ pub mod mcp;
 pub mod mode;
 pub mod model;
 pub mod settings;
+pub mod sidecar;
 
 // Re-export all commands
 pub use gpu::*;
@@ -24,3 +26,4 @@ pub use mcp::*;
 pub use mode::*;
 pub use model::*;
 pub use settings::*;
+pub use sidecar::*;

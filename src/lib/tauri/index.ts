@@ -37,8 +37,9 @@ import * as model from './model';
 import * as llm from './llm';
 import * as mcp from './mcp';
 import * as mode from './mode';
+import * as sidecar from './sidecar';
 
-export { gpu, model, llm, mcp, mode };
+export { gpu, model, llm, mcp, mode, sidecar };
 
 // Also export individual functions for convenience
 export { getHardwareInfo } from './gpu';
@@ -61,3 +62,18 @@ export {
   hasEnabledMcpServers,
 } from './mcp';
 export { setAppMode, getAppMode, checkGatewayConnection } from './mode';
+export {
+  startSidecar,
+  stopSidecar,
+  stopAllSidecars,
+  getSidecarStatus,
+  getAllSidecarStatus,
+  listSidecars,
+  enableServiceMode,
+  enableStandaloneMode,
+  getCurrentMode,
+  isWorkflowServiceRunning,
+  getWorkflowServiceUrl,
+  startWorkflowService,
+} from './sidecar';
+export type { SidecarStatus, AppModeInfo, SidecarEnv } from './sidecar';
