@@ -9,13 +9,13 @@ use crate::error::{AppError, Result};
 use crate::state::{AppMode, AppState};
 
 /// Set the application mode
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn set_app_mode(
     state: State<'_, Arc<AppState>>,
     mode: String,
     server_url: Option<String>,
 ) -> Result<()> {
-    log::info!("Setting app mode: {}", mode);
+    log::info!("Setting app mode: {}, server_url: {:?}", mode, server_url);
 
     let mut app_mode = state.app_mode.write().await;
 
@@ -55,6 +55,11 @@ pub async fn get_app_mode(state: State<'_, Arc<AppState>>) -> Result<AppModeInfo
             server_url: None,
             connected: false,
         },
+        AppMode::Service { service_url } => AppModeInfo {
+            mode: "service".to_string(),
+            server_url: Some(service_url.clone()),
+            connected: true,
+        },
         AppMode::Connected { server_url } => AppModeInfo {
             mode: "connected".to_string(),
             server_url: Some(server_url.clone()),
@@ -67,6 +72,7 @@ pub async fn get_app_mode(state: State<'_, Arc<AppState>>) -> Result<AppModeInfo
 
 /// Application mode information
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppModeInfo {
     pub mode: String,
     pub server_url: Option<String>,
@@ -80,6 +86,24 @@ pub async fn check_gateway_connection(state: State<'_, Arc<AppState>>) -> Result
 
     match &*mode {
         AppMode::Standalone => Ok(false),
+        AppMode::Service { service_url } => {
+            log::info!("Checking connection to service: {}", service_url);
+
+            let client = reqwest::Client::new();
+            let url = format!("{}/health", service_url);
+
+            match client.get(&url).send().await {
+                Ok(resp) => {
+                    let connected = resp.status().is_success();
+                    log::info!("Service connection: {}", if connected { "OK" } else { "Failed" });
+                    Ok(connected)
+                }
+                Err(e) => {
+                    log::warn!("Service connection failed: {}", e);
+                    Ok(false)
+                }
+            }
+        }
         AppMode::Connected { server_url } => {
             log::info!("Checking connection to: {}", server_url);
 
