@@ -1,16 +1,44 @@
 //! Bore Tunnel Client
 //!
 //! 자체 bore 서버를 통해 로컬 LLM을 외부에서 접근 가능하게 함.
-//! ngrok과 달리 authtoken 없이 완전 자동화 가능.
+//! bore 프로토콜: null-terminated JSON (not length-prefixed)
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// 터널 서버 설정
 const TUNNEL_SERVER_HOST: &str = "14.6.220.91";
 const TUNNEL_SERVER_PORT: u16 = 7835;
+
+/// bore 클라이언트 메시지 (서버로 보내는 메시지)
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ClientMessage {
+    /// 인증 응답
+    Authenticate(String),
+    /// 초기 연결 요청 (포트 번호, 0 = 자동 할당)
+    Hello(u16),
+    /// 연결 수락
+    Accept(Uuid),
+}
+
+/// bore 서버 메시지 (서버에서 받는 메시지)
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ServerMessage {
+    /// 인증 챌린지
+    Challenge(Uuid),
+    /// Hello 응답 (할당된 포트)
+    Hello(u16),
+    /// 하트비트
+    Heartbeat,
+    /// 새 연결 요청
+    Connection(Uuid),
+    /// 에러
+    Error(String),
+}
 
 /// 터널 상태
 #[derive(Clone, serde::Serialize, Default, Debug)]
@@ -54,6 +82,44 @@ impl TunnelManager {
         self
     }
 
+    /// null-terminated JSON 메시지 전송
+    async fn send_message<T: Serialize>(stream: &mut TcpStream, msg: &T) -> Result<(), String> {
+        let json = serde_json::to_string(msg)
+            .map_err(|e| format!("Failed to serialize: {}", e))?;
+
+        // JSON + null terminator
+        let mut bytes = json.into_bytes();
+        bytes.push(0);
+
+        stream.write_all(&bytes).await
+            .map_err(|e| format!("Failed to send: {}", e))?;
+        stream.flush().await
+            .map_err(|e| format!("Failed to flush: {}", e))?;
+
+        Ok(())
+    }
+
+    /// null-terminated JSON 메시지 수신
+    async fn recv_message<T: for<'de> Deserialize<'de>>(reader: &mut BufReader<tokio::net::tcp::OwnedReadHalf>) -> Result<T, String> {
+        let mut buf = Vec::new();
+
+        // null 문자까지 읽기
+        reader.read_until(0, &mut buf).await
+            .map_err(|e| format!("Failed to read: {}", e))?;
+
+        // null 문자 제거
+        if buf.last() == Some(&0) {
+            buf.pop();
+        }
+
+        if buf.is_empty() {
+            return Err("Empty message received".to_string());
+        }
+
+        serde_json::from_slice(&buf)
+            .map_err(|e| format!("Failed to parse JSON: {} (raw: {:?})", e, String::from_utf8_lossy(&buf)))
+    }
+
     /// 터널 시작
     pub async fn start(&self, local_port: u16) -> Result<String, String> {
         // 이미 연결된 경우
@@ -83,60 +149,42 @@ impl TunnelManager {
             .await
             .map_err(|e| format!("Failed to connect to tunnel server: {}", e))?;
 
-        // bore 프로토콜: 포트 요청 (0 = 자동 할당)
-        // bore는 간단한 JSON 프로토콜 사용
-        let hello = serde_json::json!({
-            "Hello": { "port": 0 }  // 0 = 서버가 포트 자동 할당
-        });
-        let hello_bytes = serde_json::to_vec(&hello)
-            .map_err(|e| format!("Failed to serialize: {}", e))?;
+        // Hello 메시지 전송 (포트 0 = 자동 할당)
+        let hello = ClientMessage::Hello(0);
+        Self::send_message(&mut stream, &hello).await?;
 
-        // 길이 prefix (u64 big-endian)
-        stream
-            .write_all(&(hello_bytes.len() as u64).to_be_bytes())
-            .await
-            .map_err(|e| format!("Failed to send: {}", e))?;
-        stream
-            .write_all(&hello_bytes)
-            .await
-            .map_err(|e| format!("Failed to send: {}", e))?;
+        log::info!("Sent Hello message, waiting for response...");
+
+        // 스트림 분리
+        let (read_half, write_half) = stream.into_split();
+        let mut reader = BufReader::new(read_half);
 
         // 서버 응답 읽기
-        let mut len_buf = [0u8; 8];
-        stream
-            .read_exact(&mut len_buf)
-            .await
-            .map_err(|e| format!("Failed to read response length: {}", e))?;
-        let len = u64::from_be_bytes(len_buf) as usize;
+        let response: ServerMessage = Self::recv_message(&mut reader).await?;
 
-        let mut response_buf = vec![0u8; len];
-        stream
-            .read_exact(&mut response_buf)
-            .await
-            .map_err(|e| format!("Failed to read response: {}", e))?;
-
-        let response: serde_json::Value = serde_json::from_slice(&response_buf)
-            .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-        // 할당된 포트 추출
-        let assigned_port = response
-            .get("Hello")
-            .and_then(|h| h.get("port"))
-            .and_then(|p| p.as_u64())
-            .ok_or_else(|| format!("Invalid response from server: {:?}", response))?
-            as u16;
+        let assigned_port = match response {
+            ServerMessage::Hello(port) => {
+                log::info!("Server assigned port: {}", port);
+                port
+            }
+            ServerMessage::Error(msg) => {
+                return Err(format!("Server error: {}", msg));
+            }
+            other => {
+                return Err(format!("Unexpected response: {:?}", other));
+            }
+        };
 
         let public_url = format!("http://{}:{}", self.server_host, assigned_port);
         log::info!("Tunnel established: {} -> localhost:{}", public_url, local_port);
 
         // 릴레이 태스크 시작
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
-        let local_port_clone = local_port;
         let server_host = self.server_host.clone();
         let server_port = self.server_port;
 
         tokio::spawn(async move {
-            Self::relay_loop(stream, local_port_clone, server_host, server_port, shutdown_rx).await;
+            Self::relay_loop(reader, write_half, local_port, server_host, server_port, assigned_port, shutdown_rx).await;
         });
 
         // 상태 업데이트
@@ -162,95 +210,143 @@ impl TunnelManager {
 
     /// 릴레이 루프 - 터널 서버와 로컬 포트 간 데이터 전달
     async fn relay_loop(
-        mut control_stream: TcpStream,
+        mut reader: BufReader<tokio::net::tcp::OwnedReadHalf>,
+        mut _write_half: tokio::net::tcp::OwnedWriteHalf,
         local_port: u16,
         server_host: String,
         server_port: u16,
+        assigned_port: u16,
         mut shutdown_rx: tokio::sync::oneshot::Receiver<()>,
     ) {
+        log::info!("Tunnel relay loop started");
+
         loop {
             tokio::select! {
                 _ = &mut shutdown_rx => {
                     log::info!("Tunnel relay shutdown requested");
                     break;
                 }
-                result = Self::handle_connection(&mut control_stream, local_port, &server_host, server_port) => {
-                    if let Err(e) = result {
-                        log::error!("Tunnel relay error: {}", e);
-                        break;
+                result = Self::recv_message::<ServerMessage>(&mut reader) => {
+                    match result {
+                        Ok(msg) => {
+                            if let Err(e) = Self::handle_server_message(
+                                msg,
+                                local_port,
+                                &server_host,
+                                server_port,
+                                assigned_port,
+                            ).await {
+                                log::error!("Error handling message: {}", e);
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Tunnel relay error: {}", e);
+                            break;
+                        }
                     }
                 }
             }
         }
+
+        log::info!("Tunnel relay loop ended");
     }
 
-    /// 개별 연결 처리
-    async fn handle_connection(
-        control_stream: &mut TcpStream,
+    /// 서버 메시지 처리
+    async fn handle_server_message(
+        msg: ServerMessage,
         local_port: u16,
         server_host: &str,
-        _server_port: u16,
+        server_port: u16,
+        assigned_port: u16,
     ) -> Result<(), String> {
-        // bore 프로토콜: 서버가 Connection 메시지 전송
-        let mut len_buf = [0u8; 8];
-        control_stream
-            .read_exact(&mut len_buf)
-            .await
-            .map_err(|e| format!("Control read error: {}", e))?;
-        let len = u64::from_be_bytes(len_buf) as usize;
+        match msg {
+            ServerMessage::Connection(uuid) => {
+                log::info!("New connection request: {}", uuid);
 
-        let mut msg_buf = vec![0u8; len];
-        control_stream
-            .read_exact(&mut msg_buf)
-            .await
-            .map_err(|e| format!("Control read error: {}", e))?;
+                // 새 데이터 연결 생성
+                let server_addr = format!("{}:{}", server_host, server_port);
+                let server_host = server_host.to_string();
 
-        let msg: serde_json::Value = serde_json::from_slice(&msg_buf)
-            .map_err(|e| format!("Parse error: {}", e))?;
-
-        // Connection 요청 처리
-        if let Some(conn) = msg.get("Connection") {
-            let conn_port = conn
-                .get("port")
-                .and_then(|p| p.as_u64())
-                .ok_or_else(|| "Invalid connection message".to_string())?
-                as u16;
-
-            // 새 데이터 연결
-            let data_addr = format!("{}:{}", server_host, conn_port);
-            let data_stream = TcpStream::connect(&data_addr)
-                .await
-                .map_err(|e| format!("Data connection failed: {}", e))?;
-
-            // 로컬 포트에 연결
-            let local_stream = TcpStream::connect(format!("127.0.0.1:{}", local_port))
-                .await
-                .map_err(|e| format!("Local connection failed: {}", e))?;
-
-            // 양방향 릴레이
-            tokio::spawn(async move {
-                let (mut data_read, mut data_write) = data_stream.into_split();
-                let (mut local_read, mut local_write) = local_stream.into_split();
-
-                let _ = tokio::join!(
-                    tokio::io::copy(&mut data_read, &mut local_write),
-                    tokio::io::copy(&mut local_read, &mut data_write),
-                );
-            });
-        } else if msg.get("Heartbeat").is_some() {
-            // 하트비트 응답
-            let heartbeat = serde_json::json!({"Heartbeat": {}});
-            let heartbeat_bytes = serde_json::to_vec(&heartbeat).unwrap();
-            control_stream
-                .write_all(&(heartbeat_bytes.len() as u64).to_be_bytes())
-                .await
-                .map_err(|e| format!("Heartbeat write error: {}", e))?;
-            control_stream
-                .write_all(&heartbeat_bytes)
-                .await
-                .map_err(|e| format!("Heartbeat write error: {}", e))?;
+                tokio::spawn(async move {
+                    if let Err(e) = Self::handle_connection(
+                        uuid,
+                        local_port,
+                        &server_addr,
+                        assigned_port,
+                    ).await {
+                        log::error!("Connection {} failed: {}", uuid, e);
+                    }
+                });
+            }
+            ServerMessage::Heartbeat => {
+                log::debug!("Received heartbeat");
+                // bore 서버는 하트비트 응답을 기대하지 않음
+            }
+            ServerMessage::Error(msg) => {
+                log::error!("Server error: {}", msg);
+                return Err(msg);
+            }
+            other => {
+                log::warn!("Unexpected message: {:?}", other);
+            }
         }
 
+        Ok(())
+    }
+
+    /// 개별 연결 처리 - 새 TCP 연결로 Accept 전송 후 프록시
+    async fn handle_connection(
+        uuid: Uuid,
+        local_port: u16,
+        server_addr: &str,
+        _assigned_port: u16,
+    ) -> Result<(), String> {
+        // 서버에 새 연결 (Accept용)
+        let mut server_stream = TcpStream::connect(server_addr)
+            .await
+            .map_err(|e| format!("Failed to connect for accept: {}", e))?;
+
+        // Accept 메시지 전송
+        let accept = ClientMessage::Accept(uuid);
+        Self::send_message(&mut server_stream, &accept).await?;
+
+        log::debug!("Sent Accept for connection {}", uuid);
+
+        // 로컬 서비스에 연결
+        let local_addr = format!("127.0.0.1:{}", local_port);
+        let local_stream = TcpStream::connect(&local_addr)
+            .await
+            .map_err(|e| format!("Failed to connect to local service: {}", e))?;
+
+        log::debug!("Connected to local service for {}", uuid);
+
+        // 양방향 프록시
+        let (mut server_read, mut server_write) = server_stream.into_split();
+        let (mut local_read, mut local_write) = local_stream.into_split();
+
+        let s2l = tokio::spawn(async move {
+            tokio::io::copy(&mut server_read, &mut local_write).await
+        });
+
+        let l2s = tokio::spawn(async move {
+            tokio::io::copy(&mut local_read, &mut server_write).await
+        });
+
+        // 하나가 끝나면 둘 다 종료
+        tokio::select! {
+            r = s2l => {
+                if let Err(e) = r {
+                    log::debug!("Server->Local copy ended: {}", e);
+                }
+            }
+            r = l2s => {
+                if let Err(e) = r {
+                    log::debug!("Local->Server copy ended: {}", e);
+                }
+            }
+        }
+
+        log::debug!("Connection {} finished", uuid);
         Ok(())
     }
 
