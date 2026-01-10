@@ -32,6 +32,36 @@
     "dialog:allow-save",
     "dialog:allow-message",
     "dialog:allow-ask",
-    "http:default"
+    "http:default",
+    {
+      "identifier": "http:allow-fetch",
+      "allow": [
+        { "url": "http://**" },
+        { "url": "https://**" }
+      ]
+    },
+    {
+      "identifier": "http:allow-fetch-cancel",
+      "allow": [
+        { "url": "http://**" },
+        { "url": "https://**" }
+      ]
+    },
+    {
+      "identifier": "http:allow-fetch-read-body",
+      "allow": [
+        { "url": "http://**" },
+        { "url": "https://**" }
+      ]
+    },
+    {
+      "identifier": "http:allow-fetch-send",
+      "allow": [
+        { "url": "http://**" },
+        { "url": "https://**" }
+      ]
+    },
+    "http:allow-fetch-cancel-body",
+    "http:allow-fetch-read-body"
   ]
 }

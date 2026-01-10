@@ -15,6 +15,23 @@ pub async fn set_app_mode(
     mode: String,
     server_url: Option<String>,
 ) -> Result<()> {
+    // 현재 모드 확인 (중복 설정 방지)
+    {
+        let current_mode = state.app_mode.read().await;
+        let is_same = match (&*current_mode, mode.as_str(), &server_url) {
+            (AppMode::Standalone, "standalone", _) => true,
+            (AppMode::Connected { server_url: current_url }, "connected", Some(new_url)) => {
+                current_url == new_url
+            }
+            _ => false,
+        };
+
+        if is_same {
+            log::debug!("Mode already set to {}, skipping", mode);
+            return Ok(());
+        }
+    }
+
     log::info!("Setting app mode: {}, server_url: {:?}", mode, server_url);
 
     let mut app_mode = state.app_mode.write().await;

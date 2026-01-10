@@ -4,6 +4,9 @@
 # Tauri 빌드 결과물
 /src-tauri/target
 
+# Next.js 빌드 결과물
+/dist
+
 # 환경 변수
 .env*
 

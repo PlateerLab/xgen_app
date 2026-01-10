@@ -9,11 +9,27 @@ use crate::error::{AppError, Result};
 
 /// Persistent application settings
 #[derive(serde::Serialize, serde::Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     /// Last used server URL (for connected mode)
     pub server_url: Option<String>,
     /// Last used mode: "standalone" or "connected"
     pub last_mode: String,
+    /// Local LLM settings (for using local llama.cpp, vLLM, etc.)
+    #[serde(default)]
+    pub local_llm: Option<LocalLlmSettings>,
+}
+
+/// Local LLM server settings
+#[derive(serde::Serialize, serde::Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalLlmSettings {
+    /// Whether to use local LLM
+    pub enabled: bool,
+    /// Local LLM endpoint URL (e.g., "http://localhost:8080")
+    pub endpoint: String,
+    /// Model name (optional, for display purposes)
+    pub model_name: Option<String>,
 }
 
 impl AppSettings {
@@ -22,6 +38,7 @@ impl AppSettings {
         Self {
             server_url: None,
             last_mode: "standalone".to_string(),
+            local_llm: None,
         }
     }
 }
@@ -135,8 +152,76 @@ pub async fn test_gateway_connection(url: String) -> Result<ConnectionTestResult
 
 /// Connection test result
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ConnectionTestResult {
     pub success: bool,
     pub response_time_ms: Option<u64>,
+    pub error: Option<String>,
+}
+
+/// Test connection to a local LLM server
+#[tauri::command]
+pub async fn test_local_llm_connection(endpoint: String) -> Result<LocalLlmTestResult> {
+    log::info!("Testing local LLM connection: {}", endpoint);
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| AppError::Unknown(format!("Failed to create HTTP client: {}", e)))?;
+
+    // Test health endpoint first
+    let health_url = format!("{}/health", endpoint.trim_end_matches('/'));
+    let start = std::time::Instant::now();
+
+    let health_ok = match client.get(&health_url).send().await {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => false,
+    };
+
+    // Try to get model info from /v1/models endpoint
+    let models_url = format!("{}/v1/models", endpoint.trim_end_matches('/'));
+    let model_info = match client.get(&models_url).send().await {
+        Ok(resp) if resp.status().is_success() => {
+            resp.json::<serde_json::Value>().await.ok()
+        }
+        _ => None,
+    };
+
+    let elapsed = start.elapsed().as_millis() as u64;
+
+    // Extract model name if available
+    let model_name = model_info
+        .as_ref()
+        .and_then(|v| v.get("data"))
+        .and_then(|d| d.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|m| m.get("id"))
+        .and_then(|id| id.as_str())
+        .map(|s| s.to_string());
+
+    let success = health_ok;
+
+    log::info!(
+        "Local LLM test: {} ({}ms), model: {:?}",
+        if success { "OK" } else { "Failed" },
+        elapsed,
+        model_name
+    );
+
+    Ok(LocalLlmTestResult {
+        success,
+        response_time_ms: Some(elapsed),
+        model_name,
+        error: if success { None } else { Some("Failed to connect to local LLM server".to_string()) },
+    })
+}
+
+/// Local LLM connection test result
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalLlmTestResult {
+    pub success: bool,
+    pub response_time_ms: Option<u64>,
+    pub model_name: Option<String>,
     pub error: Option<String>,
 }
