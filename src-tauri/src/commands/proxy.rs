@@ -339,6 +339,7 @@ pub struct TunnelStatus {
     pub proxy_port: Option<u16>,
     pub tunnel_connected: bool,
     pub public_url: Option<String>,
+    pub display_url: Option<String>, // 사용자에게 표시할 URL (원본 로컬 URL)
 }
 
 /// Start proxy server and bore tunnel together
@@ -357,7 +358,7 @@ pub async fn start_tunnel(
         let mut server = manager.server.lock().await;
 
         // Update endpoint
-        server.set_local_llm_endpoint(Some(local_llm_endpoint)).await;
+        server.set_local_llm_endpoint(Some(local_llm_endpoint.clone())).await;
 
         // If already running, just reuse it
         if server.is_running() {
@@ -396,6 +397,7 @@ pub async fn start_tunnel(
         proxy_port: Some(proxy_port),
         tunnel_connected,
         public_url,
+        display_url: Some(local_llm_endpoint), // 사용자가 입력한 원본 URL 표시
     })
 }
 
@@ -420,6 +422,7 @@ pub async fn stop_tunnel(app: AppHandle) -> Result<TunnelStatus> {
         proxy_port: None,
         tunnel_connected: false,
         public_url: None,
+        display_url: None,
     })
 }
 
@@ -430,11 +433,13 @@ pub async fn get_tunnel_status(app: AppHandle) -> Result<TunnelStatus> {
 
     let server = manager.server.lock().await;
     let tunnel_status = manager.tunnel().get_status().await;
+    let display_url = server.get_local_llm_endpoint().await;
 
     Ok(TunnelStatus {
         proxy_running: server.is_running(),
         proxy_port: server.get_port(),
         tunnel_connected: tunnel_status.connected,
         public_url: tunnel_status.public_url,
+        display_url,
     })
 }

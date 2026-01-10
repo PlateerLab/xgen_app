@@ -128,6 +128,11 @@ impl ProxyServer {
         self.port
     }
 
+    /// 현재 로컬 LLM 엔드포인트 반환
+    pub async fn get_local_llm_endpoint(&self) -> Option<String> {
+        self.state.local_llm_endpoint.read().await.clone()
+    }
+
     /// 서버 실행 중인지 확인
     pub fn is_running(&self) -> bool {
         self.shutdown_tx.is_some()

@@ -265,7 +265,6 @@ impl TunnelManager {
 
                 // 새 데이터 연결 생성
                 let server_addr = format!("{}:{}", server_host, server_port);
-                let server_host = server_host.to_string();
 
                 tokio::spawn(async move {
                     if let Err(e) = Self::handle_connection(
