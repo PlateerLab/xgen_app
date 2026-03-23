@@ -1,11 +1,6 @@
 //! XGEN Desktop App
 //!
-//! A personalized AI workstation with local LLM inference and MCP support.
-//!
-//! ## Architecture (mistral.rs centric)
-//! - LLM inference via mistral.rs (automatic GPU detection and device mapping)
-//! - MCP client via mistralrs_mcp (connects to external MCP servers)
-//! - Model management with local storage
+//! A personalized AI workstation with proxy, tunnel, and sidecar support.
 
 pub mod commands;
 pub mod error;
@@ -177,7 +172,7 @@ pub fn run() {
 
             log::info!("XGEN Desktop App starting...");
             log::info!("Version: {}", env!("CARGO_PKG_VERSION"));
-            log::info!("Architecture: mistral.rs centric (GPU auto-detection, MCP client)");
+            log::info!("Architecture: proxy + tunnel + sidecar");
 
             // Auto-start sidecars in background
             let app_handle = app.handle().clone();
@@ -221,29 +216,14 @@ pub fn run() {
         })
         // Register all commands
         .invoke_handler(tauri::generate_handler![
-            // Hardware Commands (system info, backend hints)
+            // Hardware Commands
             commands::get_hardware_info,
             // Model Management Commands
             commands::list_models,
             commands::download_model,
             commands::delete_model,
             commands::get_models_dir,
-            // LLM Commands (mistral.rs)
-            commands::load_model,
-            commands::get_model_status,
-            commands::generate,
-            commands::generate_sync,
-            commands::stop_generation,
-            commands::embed_text,
-            commands::unload_model,
-            // MCP Configuration Commands
-            commands::list_mcp_servers,
-            commands::add_mcp_server,
-            commands::remove_mcp_server,
-            commands::set_mcp_server_enabled,
-            commands::get_enabled_mcp_count,
-            commands::has_enabled_mcp_servers,
-            // Mode Commands (legacy)
+            // Mode Commands
             commands::set_app_mode,
             commands::get_app_mode,
             commands::check_gateway_connection,

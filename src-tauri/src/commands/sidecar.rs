@@ -133,7 +133,7 @@ pub async fn enable_standalone_mode(state: State<'_, AppState>) -> Result<()> {
 
 /// Get current app mode info
 #[tauri::command]
-pub async fn get_current_mode(state: State<'_, AppState>) -> Result<AppModeInfo> {
+pub async fn get_current_mode(state: State<'_, AppState>) -> Result<SidecarAppModeInfo> {
     let mode = state.app_mode.read().await;
     let manager = state.sidecar_manager.read().await;
 
@@ -159,16 +159,16 @@ pub async fn get_current_mode(state: State<'_, AppState>) -> Result<AppModeInfo>
         }
     };
 
-    Ok(AppModeInfo {
+    Ok(SidecarAppModeInfo {
         mode: mode_type,
         service_url,
         service_name,
     })
 }
 
-/// Information about the current app mode
+/// Information about the current app mode (sidecar context)
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct AppModeInfo {
+pub struct SidecarAppModeInfo {
     /// Mode type: "standalone", "service", or "connected"
     pub mode: String,
     /// Service URL if in service or connected mode

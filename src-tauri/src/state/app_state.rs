@@ -1,18 +1,12 @@
 //! XGEN Application State
 //!
 //! Manages global application state including hardware info, models, mode, and sidecars.
-//!
-//! ## Architecture (mistral.rs centric)
-//! - GPU detection: Simple system info (mistral.rs handles device mapping)
-//! - Inference: mistral.rs with automatic device selection
-//! - MCP: mistralrs_mcp client (configuration managed here)
-//! - Sidecars: Python service processes (xgen-workflow, etc.)
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::gpu::SystemInfo;
-use crate::services::{InferenceEngine, McpConfigManager, ModelManager, SidecarManager};
+use crate::services::{ModelManager, SidecarManager};
 
 /// Global application state shared across all Tauri commands
 pub struct AppState {
@@ -21,12 +15,6 @@ pub struct AppState {
 
     /// Model manager for downloading and managing models
     pub model_manager: Arc<RwLock<ModelManager>>,
-
-    /// LLM inference engine (mistral.rs)
-    pub inference_engine: Arc<RwLock<InferenceEngine>>,
-
-    /// MCP server configuration manager
-    pub mcp_config: Arc<RwLock<McpConfigManager>>,
 
     /// Sidecar process manager (xgen-workflow, etc.)
     pub sidecar_manager: Arc<RwLock<SidecarManager>>,
@@ -42,7 +30,7 @@ pub struct AppState {
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type")]
 pub enum AppMode {
-    /// Fully offline mode with local LLM (mistral.rs)
+    /// Standalone mode
     #[default]
     Standalone,
 
@@ -64,8 +52,6 @@ impl AppState {
         Self {
             system_info: Arc::new(RwLock::new(None)),
             model_manager: Arc::new(RwLock::new(ModelManager::new())),
-            inference_engine: Arc::new(RwLock::new(InferenceEngine::new())),
-            mcp_config: Arc::new(RwLock::new(McpConfigManager::with_defaults())),
             sidecar_manager: Arc::new(RwLock::new(SidecarManager::new())),
             app_mode: Arc::new(RwLock::new(AppMode::default())),
             gateway_url: Arc::new(RwLock::new(None)),
