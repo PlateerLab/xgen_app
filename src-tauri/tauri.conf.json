@@ -4,10 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.plateer.plateerag",
   "build": {
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:3000",
-    "beforeDevCommand": { "script": "npm run dev", "cwd": "../frontend" },
-    "beforeBuildCommand": ""
+    "frontendDist": "https://xgen.x2bee.com"
   },
   "app": {
     "windows": [

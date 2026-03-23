@@ -20,11 +20,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -36,31 +31,6 @@ jobs:
 
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2"
-
-      - name: Clone frontend from GitLab
-        run: |
-          git clone --depth 1 --branch main "https://oauth2:${{ secrets.GITLAB_TOKEN }}@gitlab.x2bee.com/tech-team/ai-team/xgen/xgen-frontend.git" frontend
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        env:
-          HUSKY: "0"
-        run: npm install --ignore-scripts
-
-      - name: Build frontend (Next.js static export for Tauri)
-        working-directory: frontend
-        env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
-          TAURI_ENV: "true"
-        run: npx next build
-
-      - name: Copy frontend to dist
-        shell: pwsh
-        run: |
-          Copy-Item -Path "frontend/out" -Destination "dist" -Recurse -Force
-          Write-Output "=== dist/index.html check ==="
-          if (Test-Path "dist/index.html") { Write-Output "OK: index.html found" }
-          else { Write-Output "ERROR: index.html not found!"; Get-ChildItem "dist" | Select-Object -First 10 }
 
       - name: Build Tauri app (Windows)
         working-directory: src-tauri
