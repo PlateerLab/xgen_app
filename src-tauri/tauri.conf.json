@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": { "script": "npm run dev", "cwd": "../frontend" },
-    "beforeBuildCommand": { "script": "bash scripts/tauri-build.sh", "cwd": "../frontend" }
+    "beforeBuildCommand": { "script": "npm run build", "cwd": "../frontend" }
   },
   "app": {
     "windows": [

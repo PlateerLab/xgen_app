@@ -45,7 +45,7 @@ jobs:
         working-directory: frontend
         env:
           HUSKY: "0"
-        run: npm install --ignore-scripts && npx next --version
+        run: npm install --ignore-scripts
 
       - name: Build Tauri app (Windows)
         working-directory: src-tauri
