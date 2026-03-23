@@ -47,6 +47,32 @@ jobs:
           HUSKY: "0"
         run: npm install --ignore-scripts
 
+      - name: Build frontend (Next.js)
+        working-directory: frontend
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+        run: npx next build
+
+      - name: Prepare frontend dist
+        shell: pwsh
+        run: |
+          # Next.js output을 Tauri가 바라보는 dist/로 복사
+          $outDir = "frontend/out"
+          $nextDir = "frontend/.next"
+          if (Test-Path $outDir) {
+            Copy-Item -Path "$outDir" -Destination "dist" -Recurse -Force
+          } elseif (Test-Path "$nextDir/static") {
+            New-Item -ItemType Directory -Path "dist" -Force | Out-Null
+            # standalone 모드면 .next에서 필요한 파일 복사
+            Copy-Item -Path "$nextDir/static" -Destination "dist/_next/static" -Recurse -Force
+            if (Test-Path "frontend/public") {
+              Copy-Item -Path "frontend/public/*" -Destination "dist/" -Recurse -Force
+            }
+          }
+          Write-Output "=== dist directory ==="
+          if (Test-Path "dist") { Get-ChildItem "dist" -Recurse | Select-Object -First 15 }
+          else { Write-Output "WARNING: dist directory not created" }
+
       - name: Build Tauri app (Windows)
         working-directory: src-tauri
         run: cargo tauri build
