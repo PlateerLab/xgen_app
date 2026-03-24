@@ -262,11 +262,36 @@ if (fs.existsSync(sidebarPath)) {
                 `import React, { useState, useMemo, useEffect }`
             );
         }
-        // Add isTauriApp state + AI CLI button (after mlModel section)
-        // Note: This adds the state variable and button in a simplified way
-        // The full sidebar integration requires the isTauriApp state
+        // Add isTauriApp state after useQuickLogout
+        content = content.replace(
+            /const \{ quickLogout \} = useQuickLogout\(\);/,
+            `const { quickLogout } = useQuickLogout();
+    const [isTauriApp, setIsTauriApp] = React.useState(false);
+    React.useEffect(() => { setIsTauriApp(isTauri()); }, []);`
+        );
+
+        // Add AI CLI button after mlModel SidebarSection closing tag (before </div> that closes sidebarSectionList)
+        content = content.replace(
+            /(<\/SidebarSection>\s*\)\}\s*)((\s*)<\/div>)/,
+            `$1
+$3{isTauriApp && (
+$3    <button
+$3        type="button"
+$3        className={\`\${styles.sidebarToggle} \${activeItem === 'ai-cli' ? styles.active : ''}\`}
+$3        onClick={() => onItemClick('ai-cli')}
+$3        data-sidebar-trigger
+$3    >
+$3        <span className={styles.toggleSectionIcon}>
+$3            <FiTerminal />
+$3        </span>
+$3        <span className={styles.toggleTitle}>AI CLI</span>
+$3    </button>
+$3)}
+$2`
+        );
+
         fs.writeFileSync(sidebarPath, content);
-        console.log('[OK] XgenSidebar 패치 완료 (import만 — 버튼은 수동 확인 필요)');
+        console.log('[OK] XgenSidebar 패치 완료');
     } else {
         console.log('[INFO] XgenSidebar 이미 패치됨');
     }
