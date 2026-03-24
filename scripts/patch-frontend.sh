@@ -106,7 +106,28 @@ else
     echo "[WARN] platform.ts 없음 - 패치 건너뜀"
 fi
 
-# 3. middleware.ts 제거 (output: 'export'에서 지원 안 됨)
+# 3. 동적 라우트에 generateStaticParams() 추가 (output: 'export' 필수)
+echo "[PATCH] 동적 라우트 generateStaticParams 주입"
+DYNAMIC_PAGES=$(find "$FRONTEND_DIR/src/app" -path '*\[*' -name "page.tsx" -o -path '*\[*' -name "page.ts" 2>/dev/null || true)
+for PAGE in $DYNAMIC_PAGES; do
+    if ! grep -q "generateStaticParams" "$PAGE"; then
+        echo "  추가: $PAGE"
+        # 파일 맨 위에 generateStaticParams export 추가
+        TEMP_FILE=$(mktemp)
+        cat > "$TEMP_FILE" << 'GSP_EOF'
+// === Tauri 빌드 패치: static export 호환 ===
+export function generateStaticParams() {
+  return [];
+}
+
+GSP_EOF
+        cat "$PAGE" >> "$TEMP_FILE"
+        mv "$TEMP_FILE" "$PAGE"
+    fi
+done
+echo "[OK] generateStaticParams 주입 완료"
+
+# 4. middleware.ts 제거 (output: 'export'에서 지원 안 됨)
 MIDDLEWARE_FILE="$FRONTEND_DIR/src/middleware.ts"
 if [ -f "$MIDDLEWARE_FILE" ]; then
     echo "[PATCH] middleware.ts 제거 (static export 호환)"
