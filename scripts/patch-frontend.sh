@@ -19,14 +19,26 @@ echo "================================================"
 echo "Tauri 빌드용 프론트엔드 패치"
 echo "================================================"
 
-# 1. API Routes 제거 (output: 'export'에서 지원 안 됨)
-API_DIR="$FRONTEND_DIR/src/app/api"
-if [ -d "$API_DIR" ]; then
-    echo "[PATCH] API Routes 제거: $API_DIR"
-    rm -rf "$API_DIR"
-    echo "[OK] API Routes 제거 완료"
-else
-    echo "[INFO] API Routes 이미 없음"
+# 1. 서버 전용 route handler 제거 (output: 'export'에서 지원 안 됨)
+# API Routes (/api/*) 및 서버 전용 route.ts가 있는 디렉토리 제거
+REMOVE_DIRS=(
+    "$FRONTEND_DIR/src/app/api"    # API Routes
+    "$FRONTEND_DIR/src/app/fe"     # 서버 파일 서빙 route
+)
+
+for DIR in "${REMOVE_DIRS[@]}"; do
+    if [ -d "$DIR" ]; then
+        echo "[PATCH] 서버 전용 디렉토리 제거: $DIR"
+        rm -rf "$DIR"
+        echo "[OK] 제거 완료"
+    fi
+done
+
+# 혹시 다른 곳에 숨은 route.ts가 있으면 찾아서 경고
+REMAINING_ROUTES=$(find "$FRONTEND_DIR/src/app" -name "route.ts" -o -name "route.js" 2>/dev/null || true)
+if [ -n "$REMAINING_ROUTES" ]; then
+    echo "[WARN] 추가 route handler 발견 (수동 확인 필요):"
+    echo "$REMAINING_ROUTES"
 fi
 
 # 2. platform.ts 누락 함수 추가
