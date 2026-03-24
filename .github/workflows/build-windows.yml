@@ -47,6 +47,10 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Copy CLI window HTML
+        shell: bash
+        run: cp src-cli/cli.html frontend/out/cli.html
+
       - name: Verify frontend build output
         run: |
           if (!(Test-Path "frontend/out")) { Write-Error "frontend/out not found"; exit 1 }
@@ -109,6 +113,9 @@ jobs:
       - name: Build frontend (static export)
         working-directory: frontend
         run: npm run build
+
+      - name: Copy CLI window HTML
+        run: cp src-cli/cli.html frontend/out/cli.html
 
       - name: Verify frontend build output
         run: |

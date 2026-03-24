@@ -172,113 +172,69 @@ sedi() {
     fi
 }
 
-# 5. AI CLI 패널 주입 (Tauri 앱 전용 기능)
-CLI_SRC="$PROJECT_ROOT/src-cli"
-if [ -d "$CLI_SRC" ]; then
-    echo "[PATCH] AI CLI 패널 주입"
-    cp -r "$CLI_SRC"/cliSection "$FRONTEND_DIR/src/app/main/"
-    echo "[OK] CLI 패널 복사 완료: $FRONTEND_DIR/src/app/main/cliSection"
+# 5. AI CLI — 별도 윈도우 방식 (cli.html을 빌드 출력에 복사)
+CLI_HTML="$PROJECT_ROOT/src-cli/cli.html"
+if [ -f "$CLI_HTML" ]; then
+    echo "[PATCH] AI CLI 윈도우 파일 준비"
+    # cli.html은 빌드 후 frontend/out/에 복사됨 (아래 post-build에서)
+    echo "[OK] cli.html 준비 완료"
 fi
 
-# 6. 프론트 소스에 CLI 라우팅 패치 (node 스크립트로 안전하게)
-echo "[PATCH] 프론트엔드 CLI 라우팅 패치"
+# 6. 사이드바에 AI CLI 버튼 추가 (클릭 시 별도 윈도우 열기)
+echo "[PATCH] 사이드바 AI CLI 버튼 패치"
 node - "$FRONTEND_DIR" << 'PATCH_JS'
 const fs = require('fs');
 const path = require('path');
 const frontendDir = process.argv[2];
 
-// --- XgenPageContent.tsx ---
-const pageContentPath = path.join(frontendDir, 'src/app/main/components/XgenPageContent.tsx');
-if (fs.existsSync(pageContentPath)) {
-    let content = fs.readFileSync(pageContentPath, 'utf8');
-    if (!content.includes('ai-cli')) {
-        // Add import
-        content = content.replace(
-            /import ScenarioRecorderPage[^\n]+/,
-            `$&\n\n// AI CLI (Tauri desktop only)\nimport CliPanel from '@/app/main/cliSection/components/CliPanel';`
-        );
-        // Add case
-        content = content.replace(
-            /(\/\/ 기본값)/,
-            `// AI CLI (Tauri desktop only)\n            case 'ai-cli':\n                return <CliPanel />;\n\n            $1`
-        );
-        fs.writeFileSync(pageContentPath, content);
-        console.log('[OK] XgenPageContent 패치 완료');
-    } else {
-        console.log('[INFO] XgenPageContent 이미 패치됨');
-    }
-}
-
-// --- XgenLayoutContent.tsx ---
-const layoutPath = path.join(frontendDir, 'src/app/main/components/XgenLayoutContent.tsx');
-if (fs.existsSync(layoutPath)) {
-    let content = fs.readFileSync(layoutPath, 'utf8');
-    if (!content.includes('getCliItems')) {
-        content = content.replace('getSupportItems }', 'getSupportItems, getCliItems }');
-        content = content.replace('...getSupportItems,', '...getSupportItems,\n            ...getCliItems,');
-        content = content.replace(
-            /(getSupportItems\.includes\(sectionId\).*$)/m,
-            `$1\n        if (getCliItems.includes(sectionId)) return true; // AI CLI`
-        );
-        fs.writeFileSync(layoutPath, content);
-        console.log('[OK] XgenLayoutContent 패치 완료');
-    } else {
-        console.log('[INFO] XgenLayoutContent 이미 패치됨');
-    }
-}
-
-// --- sidebarConfig.ts ---
-const sidebarConfigPath = path.join(frontendDir, 'src/app/main/sidebar/sidebarConfig.ts');
-if (fs.existsSync(sidebarConfigPath)) {
-    let content = fs.readFileSync(sidebarConfigPath, 'utf8');
-    if (!content.includes('getCliItems')) {
-        content = content.replace(
-            /(export const getSupportItems)/,
-            `// AI CLI 섹션 ID (Tauri 데스크톱 앱 전용)\nexport const getCliItems = ['ai-cli'];\n\n$1`
-        );
-        fs.writeFileSync(sidebarConfigPath, content);
-        console.log('[OK] sidebarConfig 패치 완료');
-    } else {
-        console.log('[INFO] sidebarConfig 이미 패치됨');
-    }
-}
-
-// --- XgenSidebar.tsx ---
+// --- XgenSidebar.tsx — AI CLI 버튼 (invoke로 별도 창 열기) ---
 const sidebarPath = path.join(frontendDir, 'src/app/main/sidebar/XgenSidebar.tsx');
 if (fs.existsSync(sidebarPath)) {
     let content = fs.readFileSync(sidebarPath, 'utf8');
-    if (!content.includes('ai-cli')) {
+    if (!content.includes('open_cli_window')) {
+        // Add FiTerminal import
+        content = content.replace('FiLogOut }', 'FiLogOut, FiTerminal }');
+
         // Add isTauri import
         content = content.replace(
             /import { useTranslation[^\n]+/,
             `$&\nimport { isTauri } from '@/app/_common/api/core/platform';`
         );
-        // Add FiTerminal
-        content = content.replace('FiLogOut }', 'FiLogOut, FiTerminal }');
-        // Add useState import if not present with useEffect
+
+        // Add useEffect if missing
         if (!content.includes('useEffect')) {
             content = content.replace(
                 /import React, \{ useState, useMemo \}/,
                 `import React, { useState, useMemo, useEffect }`
             );
         }
-        // Add isTauriApp state after useQuickLogout
+
+        // Add isTauriApp state + openCliWindow handler
         content = content.replace(
             /const \{ quickLogout \} = useQuickLogout\(\);/,
             `const { quickLogout } = useQuickLogout();
     const [isTauriApp, setIsTauriApp] = React.useState(false);
-    React.useEffect(() => { setIsTauriApp(isTauri()); }, []);`
+    React.useEffect(() => { setIsTauriApp(isTauri()); }, []);
+
+    const openCliWindow = async () => {
+        try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('open_cli_window');
+        } catch (e) {
+            console.error('Failed to open CLI window:', e);
+        }
+    };`
         );
 
-        // Add AI CLI button after mlModel SidebarSection closing tag (before </div> that closes sidebarSectionList)
+        // Add AI CLI button at the end of sidebar section list (before closing </div>)
         content = content.replace(
             /(<\/SidebarSection>\s*\)\}\s*)((\s*)<\/div>)/,
             `$1
 $3{isTauriApp && (
 $3    <button
 $3        type="button"
-$3        className={\`\${styles.sidebarToggle} \${activeItem === 'ai-cli' ? styles.active : ''}\`}
-$3        onClick={() => onItemClick('ai-cli')}
+$3        className={styles.sidebarToggle}
+$3        onClick={openCliWindow}
 $3        data-sidebar-trigger
 $3    >
 $3        <span className={styles.toggleSectionIcon}>
@@ -291,7 +247,7 @@ $2`
         );
 
         fs.writeFileSync(sidebarPath, content);
-        console.log('[OK] XgenSidebar 패치 완료');
+        console.log('[OK] XgenSidebar 패치 완료 (별도 윈도우 방식)');
     } else {
         console.log('[INFO] XgenSidebar 이미 패치됨');
     }

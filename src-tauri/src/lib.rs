@@ -255,6 +255,7 @@ pub fn run() {
             commands::stop_tunnel,
             commands::get_tunnel_status,
             // AI CLI Commands
+            commands::open_cli_window,
             commands::cli_send_message,
             commands::cli_get_history,
             commands::cli_clear_session,

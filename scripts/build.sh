@@ -100,6 +100,12 @@ if [ ! -d "$FRONTEND_DIR/out" ]; then
 fi
 echo "프론트엔드 빌드 완료: $(find "$FRONTEND_DIR/out" -type f | wc -l) files"
 
+# CLI 윈도우 HTML 복사
+if [ -f "$PROJECT_ROOT/src-cli/cli.html" ]; then
+    cp "$PROJECT_ROOT/src-cli/cli.html" "$FRONTEND_DIR/out/cli.html"
+    echo "CLI 윈도우 파일 복사 완료"
+fi
+
 # Step 5: Tauri 실행/빌드
 cd "$PROJECT_ROOT"
 

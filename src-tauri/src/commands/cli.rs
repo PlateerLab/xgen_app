@@ -6,12 +6,39 @@
 use std::sync::Arc;
 use serde::Serialize;
 use serde_json::Value;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
+use tauri::webview::WebviewWindowBuilder;
 
 use crate::error::{AppError, Result};
 use crate::services::{LlmClient, XgenApiClient};
 use crate::services::llm_client::ChatMessage;
 use crate::state::AppState;
+
+/// Open AI CLI in a separate window
+#[tauri::command]
+pub async fn open_cli_window(app: AppHandle) -> Result<()> {
+    // If window already exists, focus it
+    if let Some(window) = app.get_webview_window("cli") {
+        let _ = window.set_focus();
+        return Ok(());
+    }
+
+    // Create new CLI window
+    let _window = WebviewWindowBuilder::new(
+        &app,
+        "cli",
+        tauri::WebviewUrl::App("cli.html".into()),
+    )
+    .title("XGEN AI CLI")
+    .inner_size(700.0, 500.0)
+    .min_inner_size(400.0, 300.0)
+    .resizable(true)
+    .decorations(true)
+    .build()
+    .map_err(|e| AppError::Cli(format!("Failed to create CLI window: {}", e)))?;
+
+    Ok(())
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
