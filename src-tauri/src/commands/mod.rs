@@ -9,6 +9,7 @@
 //! - settings: Persistent app settings (config file)
 //! - sidecar: Python sidecar process management
 
+pub mod cli;
 pub mod gpu;
 pub mod mode;
 pub mod model;
@@ -17,6 +18,7 @@ pub mod settings;
 pub mod sidecar;
 
 // Re-export all commands
+pub use cli::*;
 pub use gpu::*;
 pub use mode::*;
 pub use model::*;

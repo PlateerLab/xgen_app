@@ -254,6 +254,12 @@ pub fn run() {
             commands::start_tunnel,
             commands::stop_tunnel,
             commands::get_tunnel_status,
+            // AI CLI Commands
+            commands::cli_send_message,
+            commands::cli_get_history,
+            commands::cli_clear_session,
+            commands::cli_get_session_info,
+            commands::cli_list_providers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -130,6 +130,64 @@ if [ -f "$MIDDLEWARE_FILE" ]; then
     echo "[OK] middleware.ts 제거 완료"
 fi
 
+# 5. AI CLI 패널 주입 (Tauri 앱 전용 기능)
+CLI_SRC="$PROJECT_ROOT/src-cli"
+if [ -d "$CLI_SRC" ]; then
+    echo "[PATCH] AI CLI 패널 주입"
+    CLI_DEST="$FRONTEND_DIR/src/app/main/cliSection"
+    mkdir -p "$CLI_DEST"
+    cp -r "$CLI_SRC"/* "$CLI_DEST"/
+    echo "[OK] CLI 패널 복사 완료: $CLI_DEST"
+fi
+
+# 6. 프론트 소스에 CLI 라우팅 패치
+PAGECONTENT="$FRONTEND_DIR/src/app/main/components/XgenPageContent.tsx"
+if [ -f "$PAGECONTENT" ] && ! grep -q "ai-cli" "$PAGECONTENT"; then
+    echo "[PATCH] XgenPageContent에 CLI 섹션 추가"
+    # Import 추가
+    sed -i "/import ScenarioRecorderPage/a\\
+// AI CLI (Tauri desktop only)\\
+import CliPanel from '@/app/main/cliSection/components/CliPanel';" "$PAGECONTENT"
+    # Case 추가
+    sed -i "/\/\/ 기본값/i\\
+            // AI CLI (Tauri desktop only)\\
+            case 'ai-cli':\\
+                return <CliPanel />;\\
+" "$PAGECONTENT"
+    echo "[OK] XgenPageContent 패치 완료"
+fi
+
+LAYOUTCONTENT="$FRONTEND_DIR/src/app/main/components/XgenLayoutContent.tsx"
+if [ -f "$LAYOUTCONTENT" ] && ! grep -q "getCliItems" "$LAYOUTCONTENT"; then
+    echo "[PATCH] XgenLayoutContent에 CLI 섹션 등록"
+    sed -i "s/getSupportItems }/getSupportItems, getCliItems }/" "$LAYOUTCONTENT"
+    sed -i "/\.\.\.getSupportItems,/a\\
+            ...getCliItems," "$LAYOUTCONTENT"
+    sed -i "/getSupportItems.includes(sectionId).*기술 지원/a\\
+        if (getCliItems.includes(sectionId)) return true; // AI CLI" "$LAYOUTCONTENT"
+    echo "[OK] XgenLayoutContent 패치 완료"
+fi
+
+SIDEBARCONFIG="$FRONTEND_DIR/src/app/main/sidebar/sidebarConfig.ts"
+if [ -f "$SIDEBARCONFIG" ] && ! grep -q "getCliItems" "$SIDEBARCONFIG"; then
+    echo "[PATCH] sidebarConfig에 CLI 아이템 추가"
+    sed -i "/getSupportItems/i\\
+// AI CLI 섹션 ID (Tauri 데스크톱 앱 전용)\\
+export const getCliItems = ['ai-cli'];" "$SIDEBARCONFIG"
+    echo "[OK] sidebarConfig 패치 완료"
+fi
+
+SIDEBAR="$FRONTEND_DIR/src/app/main/sidebar/XgenSidebar.tsx"
+if [ -f "$SIDEBAR" ] && ! grep -q "ai-cli" "$SIDEBAR"; then
+    echo "[PATCH] XgenSidebar에 CLI 버튼 추가"
+    # isTauri import 추가
+    sed -i "/import { useTranslation/a\\
+import { isTauri } from '@/app/_common/api/core/platform';" "$SIDEBAR"
+    # FiTerminal import 추가
+    sed -i "s/FiLogOut }/FiLogOut, FiTerminal }/" "$SIDEBAR"
+    echo "[OK] XgenSidebar 패치 완료"
+fi
+
 echo ""
 echo "================================================"
 echo "패치 완료!"

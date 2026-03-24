@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 
 use crate::gpu::SystemInfo;
 use crate::services::{ModelManager, SidecarManager};
+use crate::services::llm_client::ChatMessage;
 
 /// Global application state shared across all Tauri commands
 pub struct AppState {
@@ -24,6 +25,29 @@ pub struct AppState {
 
     /// Gateway URL for Connected mode
     pub gateway_url: Arc<RwLock<Option<String>>>,
+
+    /// CLI session state
+    pub cli_session: Arc<RwLock<CliSession>>,
+}
+
+/// AI CLI session state
+pub struct CliSession {
+    pub session_id: String,
+    pub messages: Vec<ChatMessage>,
+}
+
+impl CliSession {
+    pub fn new() -> Self {
+        Self {
+            session_id: uuid::Uuid::new_v4().to_string(),
+            messages: Vec::new(),
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.session_id = uuid::Uuid::new_v4().to_string();
+        self.messages.clear();
+    }
 }
 
 /// Application operation mode
@@ -55,6 +79,7 @@ impl AppState {
             sidecar_manager: Arc::new(RwLock::new(SidecarManager::new())),
             app_mode: Arc::new(RwLock::new(AppMode::default())),
             gateway_url: Arc::new(RwLock::new(None)),
+            cli_session: Arc::new(RwLock::new(CliSession::new())),
         }
     }
 

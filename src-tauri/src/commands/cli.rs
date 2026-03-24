@@ -1,0 +1,178 @@
+//! AI CLI Commands
+//!
+//! IPC commands for the AI CLI panel.
+//! Uses XGEN backend's LLM provider — no separate API key needed.
+
+use std::sync::Arc;
+use serde::Serialize;
+use serde_json::Value;
+use tauri::AppHandle;
+
+use crate::error::{AppError, Result};
+use crate::services::{LlmClient, XgenApiClient};
+use crate::services::llm_client::ChatMessage;
+use crate::state::AppState;
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliResponse {
+    pub session_id: String,
+    pub text: String,
+    pub tool_calls_count: usize,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CliHistoryMessage {
+    pub role: String,
+    pub content: String,
+    pub tool_calls: Vec<Value>,
+}
+
+/// Send a message to the AI CLI
+/// LLM config is fetched from XGEN backend automatically.
+/// Optional provider/model selection (defaults to anthropic).
+#[tauri::command]
+pub async fn cli_send_message(
+    app: AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    message: String,
+    xgen_token: Option<String>,
+    provider: Option<String>,
+    model: Option<String>,
+) -> Result<CliResponse> {
+    // Get XGEN API base URL
+    let base_url = state.get_server_url().await
+        .unwrap_or_else(|| "https://xgen.x2bee.com".to_string());
+
+    // Use token from frontend auth (passed from cookie)
+    let xgen_api = XgenApiClient::new(base_url, xgen_token);
+
+    // Create LLM client from XGEN backend config with optional provider/model
+    let llm = LlmClient::from_xgen(
+        &xgen_api,
+        provider.as_deref(),
+        model.as_deref(),
+    ).await?;
+
+    let mut session = state.cli_session.write().await;
+
+    // Add user message
+    session.messages.push(ChatMessage {
+        role: "user".into(),
+        content: Value::String(message),
+    });
+
+    let session_id = session.session_id.clone();
+    let mut messages = session.messages.clone();
+
+    // Release lock during API call
+    drop(session);
+
+    // Run tool use loop
+    let final_text = llm.send_with_tools(&mut messages, &xgen_api, &session_id, &app).await?;
+
+    // Count tool calls
+    let tool_calls_count = messages.iter()
+        .filter(|m| m.role == "assistant")
+        .filter_map(|m| m.content.as_array())
+        .flatten()
+        .filter(|b| b["type"].as_str() == Some("tool_use"))
+        .count();
+
+    // Save updated messages back
+    let mut session = state.cli_session.write().await;
+    session.messages = messages;
+
+    Ok(CliResponse {
+        session_id,
+        text: final_text,
+        tool_calls_count,
+    })
+}
+
+/// Get chat history
+#[tauri::command]
+pub async fn cli_get_history(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<CliHistoryMessage>> {
+    let session = state.cli_session.read().await;
+
+    let history: Vec<CliHistoryMessage> = session.messages.iter()
+        .filter(|m| m.role == "user" || m.role == "assistant")
+        .map(|m| {
+            let (text, tools) = extract_display_content(&m.content);
+            CliHistoryMessage {
+                role: m.role.clone(),
+                content: text,
+                tool_calls: tools,
+            }
+        })
+        .collect();
+
+    Ok(history)
+}
+
+/// Clear the current session
+#[tauri::command]
+pub async fn cli_clear_session(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<String> {
+    let mut session = state.cli_session.write().await;
+    session.clear();
+    Ok(session.session_id.clone())
+}
+
+/// List available LLM providers from XGEN backend
+#[tauri::command]
+pub async fn cli_list_providers(
+    state: tauri::State<'_, Arc<AppState>>,
+    xgen_token: Option<String>,
+) -> Result<Value> {
+    let base_url = state.get_server_url().await
+        .unwrap_or_else(|| "https://xgen.x2bee.com".to_string());
+    let xgen_api = XgenApiClient::new(base_url, xgen_token);
+    let providers = xgen_api.list_available_providers().await?;
+    Ok(serde_json::to_value(providers).unwrap_or_default())
+}
+
+/// Get CLI session info
+#[tauri::command]
+pub async fn cli_get_session_info(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Value> {
+    let session = state.cli_session.read().await;
+    Ok(serde_json::json!({
+        "sessionId": session.session_id,
+        "messageCount": session.messages.len(),
+    }))
+}
+
+/// Extract displayable text and tool calls from message content
+fn extract_display_content(content: &Value) -> (String, Vec<Value>) {
+    match content {
+        Value::String(s) => (s.clone(), vec![]),
+        Value::Array(blocks) => {
+            let mut text = String::new();
+            let mut tools = Vec::new();
+            for block in blocks {
+                match block["type"].as_str() {
+                    Some("text") => {
+                        if let Some(t) = block["text"].as_str() {
+                            text.push_str(t);
+                        }
+                    }
+                    Some("tool_use") => {
+                        tools.push(serde_json::json!({
+                            "name": block["name"],
+                            "input": block["input"],
+                        }));
+                    }
+                    _ => {}
+                }
+            }
+            (text, tools)
+        }
+        _ => (String::new(), vec![]),
+    }
+}

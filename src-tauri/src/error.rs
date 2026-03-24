@@ -40,6 +40,15 @@ pub enum AppError {
     #[error("Tauri error: {0}")]
     Tauri(String),
 
+    #[error("CLI error: {0}")]
+    Cli(String),
+
+    #[error("LLM API error: {0}")]
+    LlmApi(String),
+
+    #[error("XGEN API error: {0}")]
+    XgenApi(String),
+
     #[error("Unknown error: {0}")]
     Unknown(String),
 }
