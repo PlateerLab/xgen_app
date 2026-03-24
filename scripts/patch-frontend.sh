@@ -112,16 +112,30 @@ DYNAMIC_PAGES=$(find "$FRONTEND_DIR/src/app" -path '*\[*' -name "page.tsx" -o -p
 for PAGE in $DYNAMIC_PAGES; do
     if ! grep -q "generateStaticParams" "$PAGE"; then
         echo "  추가: $PAGE"
-        # 파일 맨 위에 generateStaticParams export 추가
         TEMP_FILE=$(mktemp)
-        cat > "$TEMP_FILE" << 'GSP_EOF'
+        # 'use client' directive가 있으면 그 뒤에 삽입, 없으면 맨 위에
+        if head -5 "$PAGE" | grep -q "'use client'\|\"use client\""; then
+            # 'use client' 줄까지 먼저 출력, 그 뒤에 generateStaticParams 추가
+            USE_CLIENT_LINE=$(grep -n "use client" "$PAGE" | head -1 | cut -d: -f1)
+            head -n "$USE_CLIENT_LINE" "$PAGE" > "$TEMP_FILE"
+            cat >> "$TEMP_FILE" << 'GSP_EOF'
+
+// === Tauri 빌드 패치: static export 호환 ===
+export function generateStaticParams() {
+  return [];
+}
+GSP_EOF
+            tail -n +"$((USE_CLIENT_LINE + 1))" "$PAGE" >> "$TEMP_FILE"
+        else
+            cat > "$TEMP_FILE" << 'GSP_EOF'
 // === Tauri 빌드 패치: static export 호환 ===
 export function generateStaticParams() {
   return [];
 }
 
 GSP_EOF
-        cat "$PAGE" >> "$TEMP_FILE"
+            cat "$PAGE" >> "$TEMP_FILE"
+        fi
         mv "$TEMP_FILE" "$PAGE"
     fi
 done
