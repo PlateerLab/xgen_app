@@ -130,6 +130,39 @@ if [ -f "$MIDDLEWARE_FILE" ]; then
     echo "[OK] middleware.ts 제거 완료"
 fi
 
+# 5. config.js 패치 — Tauri 정적 빌드에서는 클라이언트도 직접 백엔드 URL 사용
+CONFIG_FILE="$FRONTEND_DIR/src/app/config.js"
+if [ -f "$CONFIG_FILE" ] && ! grep -q "isTauriStaticExport" "$CONFIG_FILE"; then
+    echo "[PATCH] config.js — Tauri 정적 빌드용 BASE_URL 설정"
+    node - "$CONFIG_FILE" << 'CONFIG_PATCH'
+const fs = require('fs');
+const configPath = process.argv[2];
+let content = fs.readFileSync(configPath, 'utf8');
+
+// Replace the client-side BASE_URL logic to use actual backend URL in Tauri
+content = content.replace(
+    /} else \{\n\s*\/\/ 클라이언트 사이드:.*\n\s*BASE_URL = '';/,
+    `} else {
+    // 클라이언트 사이드: Tauri 정적 빌드에서는 Next.js 프록시가 없으므로 직접 URL 사용
+    // isTauriStaticExport flag for patch detection
+    const isTauriStaticExport = typeof window !== 'undefined' && window.__TAURI_INTERNALS__;
+    if (isTauriStaticExport) {
+        const hasPortInHostClient = /:\\d+$/.test(host_url.replace(/\\/$/, ''));
+        if (!port || hasPortInHostClient) {
+            BASE_URL = host_url.replace(/\\/$/, '');
+        } else {
+            BASE_URL = host_url.replace(/\\/$/, '') + ':' + port;
+        }
+    } else {
+        BASE_URL = '';
+    }`
+);
+
+fs.writeFileSync(configPath, content);
+console.log('[OK] config.js 패치 완료');
+CONFIG_PATCH
+fi
+
 # macOS/Linux sed 호환 함수
 sedi() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
