@@ -77,13 +77,17 @@ if [ ! -d "$FRONTEND_DIR" ]; then
     exit 1
 fi
 
-# Step 2: 프론트엔드 의존성 설치
-print_step "Step 2: 프론트엔드 의존성 설치"
+# Step 2: Tauri 정적 빌드용 패치 (API Routes 제거, 누락 함수 추가)
+print_step "Step 2: Tauri 빌드 패치"
+bash "$SCRIPT_DIR/patch-frontend.sh"
+
+# Step 3: 프론트엔드 의존성 설치
+print_step "Step 3: 프론트엔드 의존성 설치"
 cd "$FRONTEND_DIR"
 npm install
 
-# Step 3: 프론트엔드 정적 빌드 (Tauri 번들용)
-print_step "Step 3: 프론트엔드 정적 빌드"
+# Step 4: 프론트엔드 정적 빌드 (Tauri 번들용)
+print_step "Step 4: 프론트엔드 정적 빌드"
 export TAURI_ENV=true
 export NEXT_PUBLIC_BACKEND_HOST="${NEXT_PUBLIC_BACKEND_HOST:-https://xgen.x2bee.com}"
 export NEXT_PUBLIC_BACKEND_PORT="${NEXT_PUBLIC_BACKEND_PORT:-}"
@@ -96,19 +100,19 @@ if [ ! -d "$FRONTEND_DIR/out" ]; then
 fi
 echo "프론트엔드 빌드 완료: $(find "$FRONTEND_DIR/out" -type f | wc -l) files"
 
-# Step 4: Tauri 실행/빌드
+# Step 5: Tauri 실행/빌드
 cd "$PROJECT_ROOT"
 
 if [ "$DEV_MODE" = true ]; then
-    print_step "Step 4: Tauri 개발 모드 실행"
+    print_step "Step 5: Tauri 개발 모드 실행"
     cd src-tauri
     cargo tauri dev
 else
-    print_step "Step 4: Tauri 앱 빌드"
+    print_step "Step 5: Tauri 앱 빌드"
     cd src-tauri
     cargo tauri build
 
-    print_step "Step 5: 빌드 완료!"
+    print_step "Step 6: 빌드 완료!"
     echo "빌드된 앱 위치:"
     if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "  - macOS: $PROJECT_ROOT/src-tauri/target/release/bundle/macos/"
