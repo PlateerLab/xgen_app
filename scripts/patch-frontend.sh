@@ -106,40 +106,21 @@ else
     echo "[WARN] platform.ts 없음 - 패치 건너뜀"
 fi
 
-# 3. 동적 라우트에 generateStaticParams() 추가 (output: 'export' 필수)
-echo "[PATCH] 동적 라우트 generateStaticParams 주입"
-DYNAMIC_PAGES=$(find "$FRONTEND_DIR/src/app" -path '*\[*' -name "page.tsx" -o -path '*\[*' -name "page.ts" 2>/dev/null || true)
-for PAGE in $DYNAMIC_PAGES; do
-    if ! grep -q "generateStaticParams" "$PAGE"; then
-        echo "  추가: $PAGE"
-        TEMP_FILE=$(mktemp)
-        # 'use client' directive가 있으면 그 뒤에 삽입, 없으면 맨 위에
-        if head -5 "$PAGE" | grep -q "'use client'\|\"use client\""; then
-            # 'use client' 줄까지 먼저 출력, 그 뒤에 generateStaticParams 추가
-            USE_CLIENT_LINE=$(grep -n "use client" "$PAGE" | head -1 | cut -d: -f1)
-            head -n "$USE_CLIENT_LINE" "$PAGE" > "$TEMP_FILE"
-            cat >> "$TEMP_FILE" << 'GSP_EOF'
-
-// === Tauri 빌드 패치: static export 호환 ===
-export function generateStaticParams() {
-  return [];
-}
-GSP_EOF
-            tail -n +"$((USE_CLIENT_LINE + 1))" "$PAGE" >> "$TEMP_FILE"
-        else
-            cat > "$TEMP_FILE" << 'GSP_EOF'
-// === Tauri 빌드 패치: static export 호환 ===
-export function generateStaticParams() {
-  return [];
-}
-
-GSP_EOF
-            cat "$PAGE" >> "$TEMP_FILE"
-        fi
-        mv "$TEMP_FILE" "$PAGE"
+# 3. 동적 라우트 디렉토리 제거 (output: 'export' + 'use client' 공존 불가)
+# [param] 형태의 동적 경로는 static export에서 generateStaticParams 필요하지만
+# 'use client' 컴포넌트와 함께 쓸 수 없으므로 해당 페이지 자체를 제거
+echo "[PATCH] 동적 라우트 디렉토리 제거"
+DYNAMIC_DIRS=$(find "$FRONTEND_DIR/src/app" -type d -name '\[*' 2>/dev/null | sort -r || true)
+for DIR in $DYNAMIC_DIRS; do
+    # 부모 디렉토리도 동적이면(중첩) 자식만 제거하면 됨 (sort -r로 깊은 것 먼저)
+    if [ -d "$DIR" ]; then
+        echo "  제거: $DIR"
+        rm -rf "$DIR"
     fi
 done
-echo "[OK] generateStaticParams 주입 완료"
+# 빈 부모 디렉토리 정리
+find "$FRONTEND_DIR/src/app" -type d -empty -delete 2>/dev/null || true
+echo "[OK] 동적 라우트 제거 완료"
 
 # 4. middleware.ts 제거 (output: 'export'에서 지원 안 됨)
 MIDDLEWARE_FILE="$FRONTEND_DIR/src/middleware.ts"
