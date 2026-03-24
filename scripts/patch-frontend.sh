@@ -143,10 +143,8 @@ sedi() {
 CLI_SRC="$PROJECT_ROOT/src-cli"
 if [ -d "$CLI_SRC" ]; then
     echo "[PATCH] AI CLI 패널 주입"
-    CLI_DEST="$FRONTEND_DIR/src/app/main/cliSection"
-    mkdir -p "$CLI_DEST"
-    cp -r "$CLI_SRC"/* "$CLI_DEST"/
-    echo "[OK] CLI 패널 복사 완료: $CLI_DEST"
+    cp -r "$CLI_SRC"/cliSection "$FRONTEND_DIR/src/app/main/"
+    echo "[OK] CLI 패널 복사 완료: $FRONTEND_DIR/src/app/main/cliSection"
 fi
 
 # 6. 프론트 소스에 CLI 라우팅 패치 (node 스크립트로 안전하게)
