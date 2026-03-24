@@ -82,19 +82,33 @@ print_step "Step 2: 프론트엔드 의존성 설치"
 cd "$FRONTEND_DIR"
 npm install
 
-# Step 3: Tauri 실행/빌드
+# Step 3: 프론트엔드 정적 빌드 (Tauri 번들용)
+print_step "Step 3: 프론트엔드 정적 빌드"
+export TAURI_ENV=true
+export NEXT_PUBLIC_BACKEND_HOST="${NEXT_PUBLIC_BACKEND_HOST:-https://xgen.x2bee.com}"
+export NEXT_PUBLIC_BACKEND_PORT="${NEXT_PUBLIC_BACKEND_PORT:-}"
+echo "Backend: $NEXT_PUBLIC_BACKEND_HOST:$NEXT_PUBLIC_BACKEND_PORT"
+npm run build
+
+if [ ! -d "$FRONTEND_DIR/out" ]; then
+    print_error "프론트엔드 빌드 실패: out/ 디렉토리가 생성되지 않았습니다."
+    exit 1
+fi
+echo "프론트엔드 빌드 완료: $(find "$FRONTEND_DIR/out" -type f | wc -l) files"
+
+# Step 4: Tauri 실행/빌드
 cd "$PROJECT_ROOT"
 
 if [ "$DEV_MODE" = true ]; then
-    print_step "Step 3: Tauri 개발 모드 실행"
+    print_step "Step 4: Tauri 개발 모드 실행"
     cd src-tauri
     cargo tauri dev
 else
-    print_step "Step 3: Tauri 앱 빌드"
+    print_step "Step 4: Tauri 앱 빌드"
     cd src-tauri
     cargo tauri build
 
-    print_step "빌드 완료!"
+    print_step "Step 5: 빌드 완료!"
     echo "빌드된 앱 위치:"
     if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "  - macOS: $PROJECT_ROOT/src-tauri/target/release/bundle/macos/"

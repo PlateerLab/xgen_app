@@ -8,7 +8,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 FRONTEND_DIR="$PROJECT_ROOT/frontend"
-FRONTEND_REPO="http://gitlab.x2bee.com/tech-team/ai-team/xgen/xgen-frontend.git"
+# GitLab은 반드시 https:// 사용 (http://는 인증 실패)
+# CI에서는 GITLAB_TOKEN 환경변수, 로컬에서는 ~/.claude/.secrets 참조
+if [ -z "$GITLAB_TOKEN" ] && [ -f "$HOME/.claude/.secrets" ]; then
+    source "$HOME/.claude/.secrets"
+fi
+
+if [ -n "$GITLAB_TOKEN" ]; then
+    FRONTEND_REPO="https://sonsj97:${GITLAB_TOKEN}@gitlab.x2bee.com/xgen2.0/xgen-frontend.git"
+else
+    FRONTEND_REPO="https://gitlab.x2bee.com/xgen2.0/xgen-frontend.git"
+fi
 BRANCH="${FRONTEND_BRANCH:-main}"
 
 echo "================================================"

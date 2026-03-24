@@ -10,6 +10,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  TAURI_ENV: "true"
+  NEXT_PUBLIC_BACKEND_HOST: "https://xgen.x2bee.com"
+  NEXT_PUBLIC_BACKEND_PORT: ""
 
 jobs:
   build-windows:
@@ -20,6 +23,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # --- Frontend: xgen-frontend clone & build ---
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+        continue-on-error: true  # cache miss 시에도 계속 진행
+
+      - name: Clone xgen-frontend
+        run: |
+          git clone --depth 1 --branch main "https://sonsj97:${{ secrets.GITLAB_TOKEN }}@gitlab.x2bee.com/xgen2.0/xgen-frontend.git" frontend
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Build frontend (static export)
+        working-directory: frontend
+        run: npm run build
+
+      - name: Verify frontend build output
+        run: |
+          if (!(Test-Path "frontend/out")) { Write-Error "frontend/out not found"; exit 1 }
+          Write-Host "Frontend build OK: $(Get-ChildItem -Recurse frontend/out -File | Measure-Object | Select-Object -ExpandProperty Count) files"
+
+      # --- Tauri: Rust build ---
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
