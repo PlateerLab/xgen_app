@@ -58,6 +58,14 @@ impl XgenApiClient {
         }
     }
 
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    pub fn auth_token(&self) -> Option<&str> {
+        self.auth_token.as_deref()
+    }
+
     pub fn set_auth_token(&mut self, token: String) {
         self.auth_token = Some(token);
     }

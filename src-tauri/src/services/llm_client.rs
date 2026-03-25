@@ -12,6 +12,7 @@ use tauri::{AppHandle, Emitter};
 use crate::error::{AppError, Result};
 use crate::services::XgenApiClient;
 use crate::services::xgen_api::LlmProviderConfig;
+use crate::services::tool_search;
 
 const MAX_TOOL_ROUNDS: usize = 5;
 
@@ -81,10 +82,14 @@ impl LlmClient {
 - 워크플로우 목록 조회, 생성, 실행, 삭제
 - 스케줄 생성 및 관리
 - 노드/도구/LLM 상태 확인
+- 문서 검색 및 RAG
 - 사용자 질문에 친절하게 답변
 
 tool 호출 결과를 사용자에게 보기 좋게 정리해서 한국어로 답변하세요.
-JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요."#
+JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
+
+주어진 tool 중에서 사용자 요청에 가장 적합한 것을 선택하세요.
+적합한 tool이 없으면 tool을 호출하지 말고 직접 답변하세요."#
     }
 
     // ============================================================
@@ -575,7 +580,148 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요."#
     }
 
     // ============================================================
-    // Unified entry point
+    // Non-streaming API call (for tests, no AppHandle needed)
+    // ============================================================
+
+    async fn call_anthropic_nostream(
+        &self,
+        messages: &[ChatMessage],
+        tools: &[Value],
+    ) -> Result<Value> {
+        let body = serde_json::json!({
+            "model": self.config.model,
+            "max_tokens": 4096,
+            "system": Self::system_prompt(),
+            "messages": messages,
+            "tools": tools,
+        });
+
+        let resp = self.client
+            .post("https://api.anthropic.com/v1/messages")
+            .header("x-api-key", &self.config.api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| AppError::LlmApi(format!("Request failed: {}", e)))?;
+
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if !status.is_success() {
+            return Err(AppError::LlmApi(format!("HTTP {} - {}", status.as_u16(), text)));
+        }
+
+        let response: Value = serde_json::from_str(&text)
+            .map_err(|e| AppError::LlmApi(format!("Parse error: {}", e)))?;
+
+        let stop_reason = response["stop_reason"].as_str().unwrap_or("end_turn");
+        let content = response["content"].clone();
+
+        Ok(serde_json::json!({"role":"assistant","content":content,"stop_reason":stop_reason}))
+    }
+
+    /// Non-streaming tool use loop (for testing without AppHandle)
+    pub async fn send_with_tools_nostream(
+        &self,
+        messages: &mut Vec<ChatMessage>,
+        xgen_api: &XgenApiClient,
+    ) -> Result<String> {
+        // 사용자 메시지에서 쿼리 추출하여 관련 tool 동적 검색
+        let user_query = messages.last()
+            .and_then(|m| m.content.as_str())
+            .unwrap_or("help");
+
+        let openapi_source = format!("{}/api/openapi", xgen_api.base_url());
+        let tools = match tool_search::search_tools_for_llm(user_query, &openapi_source, Some(7)).await {
+            Ok(t) if !t.is_empty() => {
+                println!("  [tools] Found {} dynamic tools for '{}'", t.len(), user_query);
+                t
+            }
+            Ok(_) | Err(_) => {
+                println!("  [tools] Fallback to hardcoded tools");
+                XgenApiClient::tool_definitions()
+            }
+        };
+        let mut final_text = String::new();
+
+        for round in 0..MAX_TOOL_ROUNDS {
+            println!("[CLI test] round {}/{} ({})", round + 1, MAX_TOOL_ROUNDS, self.config.provider);
+
+            let response = self.call_anthropic_nostream(messages, &tools).await?;
+
+            let stop_reason = response["stop_reason"].as_str().unwrap_or("end_turn");
+            let content = response["content"].as_array()
+                .ok_or_else(|| AppError::LlmApi("Invalid response content".into()))?;
+
+            messages.push(ChatMessage {
+                role: "assistant".into(),
+                content: Value::Array(content.clone()),
+            });
+
+            if stop_reason == "tool_use" {
+                let mut tool_results: Vec<Value> = Vec::new();
+
+                for block in content {
+                    if block["type"].as_str() == Some("tool_use") {
+                        let tool_id = block["id"].as_str().unwrap_or("");
+                        let tool_name = block["name"].as_str().unwrap_or("");
+                        let tool_input = block["input"].clone();
+
+                        println!("  [tool] {} → {:?}", tool_name, tool_input);
+
+                        // graph-tool-call call로 실행 (OpenAPI 기반 동적 실행)
+                        let result = match tool_search::execute_tool_call(
+                            tool_name,
+                            &tool_input,
+                            &openapi_source,
+                            xgen_api.base_url(),
+                            xgen_api.auth_token(),
+                        ).await {
+                            Ok(v) => {
+                                let s = serde_json::to_string_pretty(&v).unwrap_or_default();
+                                println!("  [result] {}...", s.chars().take(200).collect::<String>());
+                                s
+                            },
+                            Err(e) => {
+                                // fallback: xgen_api.execute_tool
+                                println!("  [graph-tool-call fallback] {}", e);
+                                match xgen_api.execute_tool(tool_name, tool_input.clone()).await {
+                                    Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
+                                    Err(e2) => format!("Error: {}", e2),
+                                }
+                            },
+                        };
+
+                        tool_results.push(serde_json::json!({
+                            "type": "tool_result",
+                            "tool_use_id": tool_id,
+                            "content": result,
+                        }));
+                    }
+                }
+
+                messages.push(ChatMessage {
+                    role: "user".into(),
+                    content: Value::Array(tool_results),
+                });
+            } else {
+                for block in content {
+                    if block["type"].as_str() == Some("text") {
+                        if let Some(text) = block["text"].as_str() {
+                            final_text.push_str(text);
+                        }
+                    }
+                }
+                break;
+            }
+        }
+
+        Ok(final_text)
+    }
+
+    // ============================================================
+    // Unified streaming entry point
     // ============================================================
 
     async fn call_stream(
@@ -600,7 +746,22 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요."#
         session_id: &str,
         app: &AppHandle,
     ) -> Result<String> {
-        let tools = XgenApiClient::tool_definitions();
+        // 동적 tool 검색
+        let user_query = messages.last()
+            .and_then(|m| m.content.as_str())
+            .unwrap_or("help");
+
+        let openapi_source = format!("{}/api/openapi", xgen_api.base_url());
+        let tools = match tool_search::search_tools_for_llm(user_query, &openapi_source, Some(7)).await {
+            Ok(t) if !t.is_empty() => {
+                log::info!("Found {} dynamic tools for '{}'", t.len(), user_query);
+                t
+            }
+            Ok(_) | Err(_) => {
+                log::warn!("Fallback to hardcoded tools");
+                XgenApiClient::tool_definitions()
+            }
+        };
         let mut final_text = String::new();
 
         for round in 0..MAX_TOOL_ROUNDS {
@@ -634,9 +795,21 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요."#
                             data: serde_json::json!({"id":tool_id,"name":tool_name,"input":tool_input}),
                         });
 
-                        let result = match xgen_api.execute_tool(tool_name, tool_input).await {
+                        let result = match tool_search::execute_tool_call(
+                            tool_name,
+                            &tool_input,
+                            &openapi_source,
+                            xgen_api.base_url(),
+                            xgen_api.auth_token(),
+                        ).await {
                             Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
-                            Err(e) => format!("Error: {}", e),
+                            Err(e) => {
+                                log::warn!("graph-tool-call fallback: {}", e);
+                                match xgen_api.execute_tool(tool_name, tool_input).await {
+                                    Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
+                                    Err(e2) => format!("Error: {}", e2),
+                                }
+                            }
                         };
 
                         let _ = app.emit("cli:event", CliStreamEvent {
