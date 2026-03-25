@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "XGEN Desktop App default capabilities",
-  "windows": ["main"],
+  "windows": ["main", "cli"],
   "permissions": [
     "core:default",
     "core:event:default",
