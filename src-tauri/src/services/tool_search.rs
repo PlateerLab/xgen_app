@@ -18,39 +18,49 @@ use crate::error::{AppError, Result};
 const DEFAULT_TOP_K: usize = 5;
 
 /// graph-tool-call sidecar 경로 찾기
+/// Tauri externalBin으로 번들된 바이너리를 우선 사용, 없으면 PATH에서 찾기
 fn find_binary() -> Result<String> {
-    // 1. 환경변수
+    // 1. 환경변수 (개발/테스트용)
     if let Ok(path) = std::env::var("GRAPH_TOOL_CALL_BIN") {
         if std::path::Path::new(&path).exists() {
             return Ok(path);
         }
     }
 
-    // 2. 실행 파일 옆 (Tauri 번들)
+    // 2. Tauri 번들 sidecar (externalBin)
+    //    빌드 시 binaries/graph-tool-call-{target_triple} 형태로 번들됨
+    //    실행 시 앱 리소스 디렉토리에 graph-tool-call[-suffix] 로 배치
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            for name in &["graph-tool-call", "graph-tool-call.exe", "graph-tool-call-bin", "graph-tool-call-bin.exe"] {
+            for name in &[
+                "graph-tool-call",
+                "graph-tool-call.exe",
+                // Tauri sidecar naming convention
+                &format!("graph-tool-call-{}", std::env::consts::ARCH),
+            ] {
                 let p = dir.join(name);
                 if p.exists() {
+                    log::info!("Found bundled graph-tool-call: {}", p.display());
                     return Ok(p.to_string_lossy().to_string());
                 }
             }
         }
     }
 
-    // 3. 시스템 PATH
+    // 3. 시스템 PATH (개발 환경 fallback)
     for cmd in &["which", "where"] {
         if let Ok(output) = std::process::Command::new(cmd).arg("graph-tool-call").output() {
             if output.status.success() {
                 let path = String::from_utf8_lossy(&output.stdout).lines().next().unwrap_or("").trim().to_string();
                 if !path.is_empty() && std::path::Path::new(&path).exists() {
+                    log::info!("Found graph-tool-call in PATH: {}", path);
                     return Ok(path);
                 }
             }
         }
     }
 
-    Err(AppError::Cli("graph-tool-call 바이너리를 찾을 수 없습니다".into()))
+    Err(AppError::Cli("graph-tool-call 바이너리를 찾을 수 없습니다. 앱을 재설치하세요.".into()))
 }
 
 /// graph 캐시 파일 경로

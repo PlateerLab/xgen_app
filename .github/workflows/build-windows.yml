@@ -13,16 +13,37 @@ env:
   TAURI_ENV: "true"
   NEXT_PUBLIC_BACKEND_HOST: "https://xgen.x2bee.com"
   NEXT_PUBLIC_BACKEND_PORT: ""
+  GRAPH_TOOL_CALL_VERSION: "0.13.1"
 
 jobs:
   build-windows:
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # --- PyInstaller: graph-tool-call sidecar ---
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build graph-tool-call sidecar (Windows)
+        shell: bash
+        run: |
+          pip install "graph-tool-call[mcp]==$GRAPH_TOOL_CALL_VERSION" pyinstaller
+          # Find the entry point
+          ENTRY=$(python -c "import graph_tool_call.__main__; print(graph_tool_call.__main__.__file__)")
+          echo "Entry point: $ENTRY"
+          pyinstaller --onefile --name graph-tool-call --hidden-import graph_tool_call "$ENTRY"
+          # Copy to Tauri sidecar directory with target triple suffix
+          mkdir -p src-tauri/binaries
+          cp dist/graph-tool-call.exe "src-tauri/binaries/graph-tool-call-x86_64-pc-windows-msvc.exe"
+          echo "Sidecar built: $(ls -lh src-tauri/binaries/)"
+
+      # --- Frontend: xgen-frontend clone & build ---
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -56,6 +77,7 @@ jobs:
           if (!(Test-Path "frontend/out")) { Write-Error "frontend/out not found"; exit 1 }
           Write-Host "Frontend build OK: $(Get-ChildItem -Recurse frontend/out -File | Measure-Object | Select-Object -ExpandProperty Count) files"
 
+      # --- Tauri: Rust build ---
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -88,12 +110,32 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # --- PyInstaller: graph-tool-call sidecar ---
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build graph-tool-call sidecar (macOS)
+        run: |
+          pip install "graph-tool-call[mcp]==$GRAPH_TOOL_CALL_VERSION" pyinstaller
+          # Find the entry point
+          ENTRY=$(python -c "import graph_tool_call.__main__; print(graph_tool_call.__main__.__file__)")
+          echo "Entry point: $ENTRY"
+          pyinstaller --onefile --name graph-tool-call --hidden-import graph_tool_call "$ENTRY"
+          # Copy to Tauri sidecar directory with target triple suffix
+          mkdir -p src-tauri/binaries
+          cp dist/graph-tool-call "src-tauri/binaries/graph-tool-call-aarch64-apple-darwin"
+          chmod +x "src-tauri/binaries/graph-tool-call-aarch64-apple-darwin"
+          echo "Sidecar built: $(ls -lh src-tauri/binaries/)"
+
+      # --- Frontend ---
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -122,6 +164,7 @@ jobs:
           test -d frontend/out || (echo "frontend/out not found" && exit 1)
           echo "Frontend build OK: $(find frontend/out -type f | wc -l) files"
 
+      # --- Tauri ---
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
