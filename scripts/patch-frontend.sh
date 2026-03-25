@@ -122,7 +122,30 @@ done
 find "$FRONTEND_DIR/src/app" -type d -empty -delete 2>/dev/null || true
 echo "[OK] 동적 라우트 제거 완료"
 
-# 4. middleware.ts 제거 (output: 'export'에서 지원 안 됨)
+# 4. next.config.ts 패치 — images.unoptimized 추가 (static export에서 next/image 사용 위해 필수)
+NEXT_CONFIG="$FRONTEND_DIR/next.config.ts"
+if [ -f "$NEXT_CONFIG" ] && ! grep -q "unoptimized" "$NEXT_CONFIG"; then
+    echo "[PATCH] next.config.ts — images.unoptimized: true 추가"
+    node - "$NEXT_CONFIG" << 'NEXTCONFIG_PATCH'
+const fs = require('fs');
+const configPath = process.argv[2];
+let content = fs.readFileSync(configPath, 'utf8');
+
+// Add images: { unoptimized: true } for static export (next/image requirement)
+if (!content.includes('unoptimized')) {
+    content = content.replace(
+        /(const nextConfig:\s*NextConfig\s*=\s*\{)/,
+        `$1\n    images: { unoptimized: true },`
+    );
+    fs.writeFileSync(configPath, content);
+    console.log('[OK] next.config.ts images.unoptimized 패치 완료');
+} else {
+    console.log('[INFO] next.config.ts 이미 패치됨');
+}
+NEXTCONFIG_PATCH
+fi
+
+# 5. middleware.ts 제거 (output: 'export'에서 지원 안 됨)
 MIDDLEWARE_FILE="$FRONTEND_DIR/src/middleware.ts"
 if [ -f "$MIDDLEWARE_FILE" ]; then
     echo "[PATCH] middleware.ts 제거 (static export 호환)"
