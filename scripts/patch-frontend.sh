@@ -20,26 +20,24 @@ echo "Tauri 빌드용 프론트엔드 패치"
 echo "================================================"
 
 # 1. 서버 전용 route handler 제거 (output: 'export'에서 지원 안 됨)
-# API Routes (/api/*) 및 서버 전용 route.ts가 있는 디렉토리 제거
-REMOVE_DIRS=(
-    "$FRONTEND_DIR/src/app/api"    # API Routes
-    "$FRONTEND_DIR/src/app/fe"     # 서버 파일 서빙 route
-)
-
-for DIR in "${REMOVE_DIRS[@]}"; do
-    if [ -d "$DIR" ]; then
-        echo "[PATCH] 서버 전용 디렉토리 제거: $DIR"
-        rm -rf "$DIR"
-        echo "[OK] 제거 완료"
-    fi
+# route.ts가 있는 디렉토리만 제거 (일반 TS 모듈은 보존)
+echo "[PATCH] 서버 전용 route handler 제거"
+find "$FRONTEND_DIR/src/app" -name "route.ts" -o -name "route.js" 2>/dev/null | while read ROUTE_FILE; do
+    ROUTE_DIR=$(dirname "$ROUTE_FILE")
+    echo "  제거: $ROUTE_DIR"
+    rm -rf "$ROUTE_DIR"
 done
+echo "[OK] route handler 제거 완료"
 
-# 혹시 다른 곳에 숨은 route.ts가 있으면 찾아서 경고
-REMAINING_ROUTES=$(find "$FRONTEND_DIR/src/app" -name "route.ts" -o -name "route.js" 2>/dev/null || true)
-if [ -n "$REMAINING_ROUTES" ]; then
-    echo "[WARN] 추가 route handler 발견 (수동 확인 필요):"
-    echo "$REMAINING_ROUTES"
+# /fe 디렉토리 제거 (서버 파일 서빙)
+if [ -d "$FRONTEND_DIR/src/app/fe" ]; then
+    echo "[PATCH] /fe 디렉토리 제거"
+    rm -rf "$FRONTEND_DIR/src/app/fe"
+    echo "[OK] 제거 완료"
 fi
+
+# 빈 디렉토리 정리
+find "$FRONTEND_DIR/src/app/api" -type d -empty -delete 2>/dev/null || true
 
 # 2. platform.ts 누락 함수 추가
 PLATFORM_FILE="$FRONTEND_DIR/src/app/_common/api/core/platform.ts"
