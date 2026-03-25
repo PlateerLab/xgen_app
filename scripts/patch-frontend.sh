@@ -8,7 +8,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-FRONTEND_DIR="$PROJECT_ROOT/frontend"
+FRONTEND_DIR="${FRONTEND_DIR:-$PROJECT_ROOT/frontend}"
 
 if [ ! -d "$FRONTEND_DIR" ]; then
     echo "[ERROR] frontend 디렉토리가 없습니다."
@@ -205,77 +205,7 @@ fi
 
 # 6. 사이드바에 AI CLI 버튼 추가 (클릭 시 별도 윈도우 열기)
 echo "[PATCH] 사이드바 AI CLI 버튼 패치"
-node - "$FRONTEND_DIR" << 'PATCH_JS'
-const fs = require('fs');
-const path = require('path');
-const frontendDir = process.argv[2];
-
-// --- XgenSidebar.tsx — AI CLI 버튼 (invoke로 별도 창 열기) ---
-const sidebarPath = path.join(frontendDir, 'src/app/main/sidebar/XgenSidebar.tsx');
-if (fs.existsSync(sidebarPath)) {
-    let content = fs.readFileSync(sidebarPath, 'utf8');
-    if (!content.includes('open_cli_window')) {
-        // Add FiTerminal import
-        content = content.replace('FiLogOut }', 'FiLogOut, FiTerminal }');
-
-        // Add isTauri import
-        content = content.replace(
-            /import { useTranslation[^\n]+/,
-            `$&\nimport { isTauri } from '@/app/_common/api/core/platform';`
-        );
-
-        // Add useEffect if missing
-        if (!content.includes('useEffect')) {
-            content = content.replace(
-                /import React, \{ useState, useMemo \}/,
-                `import React, { useState, useMemo, useEffect }`
-            );
-        }
-
-        // Add isTauriApp state + openCliWindow handler
-        content = content.replace(
-            /const \{ quickLogout \} = useQuickLogout\(\);/,
-            `const { quickLogout } = useQuickLogout();
-    const [isTauriApp, setIsTauriApp] = React.useState(false);
-    React.useEffect(() => { setIsTauriApp(isTauri()); }, []);
-
-    const openCliWindow = async () => {
-        try {
-            const { invoke } = await import('@tauri-apps/api/core');
-            await invoke('open_cli_window');
-        } catch (e) {
-            console.error('Failed to open CLI window:', e);
-        }
-    };`
-        );
-
-        // Add AI CLI button at the end of sidebar section list (before closing </div>)
-        content = content.replace(
-            /(<\/SidebarSection>\s*\)\}\s*)((\s*)<\/div>)/,
-            `$1
-$3{isTauriApp && (
-$3    <button
-$3        type="button"
-$3        className={styles.sidebarToggle}
-$3        onClick={openCliWindow}
-$3        data-sidebar-trigger
-$3    >
-$3        <span className={styles.toggleSectionIcon}>
-$3            <FiTerminal />
-$3        </span>
-$3        <span className={styles.toggleTitle}>AI CLI</span>
-$3    </button>
-$3)}
-$2`
-        );
-
-        fs.writeFileSync(sidebarPath, content);
-        console.log('[OK] XgenSidebar 패치 완료 (별도 윈도우 방식)');
-    } else {
-        console.log('[INFO] XgenSidebar 이미 패치됨');
-    }
-}
-PATCH_JS
+node "$SCRIPT_DIR/patch-sidebar-cli.js" "$FRONTEND_DIR"
 
 echo ""
 echo "================================================"
