@@ -34,6 +34,7 @@ pub struct AppState {
 pub struct CliSession {
     pub session_id: String,
     pub messages: Vec<ChatMessage>,
+    pub xgen_token: Option<String>,
 }
 
 impl CliSession {
@@ -41,6 +42,7 @@ impl CliSession {
         Self {
             session_id: uuid::Uuid::new_v4().to_string(),
             messages: Vec::new(),
+            xgen_token: None,
         }
     }
 

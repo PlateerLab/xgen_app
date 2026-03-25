@@ -202,18 +202,10 @@ let isLoading = false;
 let streamingText = '';
 let currentStreamEl = null;
 
-// Get auth token from main window via Tauri
-// We'll pass it from the cookie or localStorage
+// Get auth token from URL query param (passed by open_cli_window)
 function getToken() {
-  try {
-    // Try to get from cookie-like storage
-    const cookies = document.cookie.split(';').reduce((acc, c) => {
-      const [k, v] = c.trim().split('=');
-      acc[k] = v;
-      return acc;
-    }, {});
-    return cookies['access_token'] || null;
-  } catch { return null; }
+  const params = new URLSearchParams(window.location.search);
+  return params.get('token') || null;
 }
 
 // Load providers

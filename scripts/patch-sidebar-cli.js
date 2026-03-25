@@ -53,7 +53,13 @@ content = content.replace(
     const openCliWindow = async () => {
         try {
             const { invoke } = await import('@tauri-apps/api/core');
-            await invoke('open_cli_window');
+            // Pass auth token from cookie to CLI window
+            const getCookie = (name) => {
+                const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+                return match ? match[2] : null;
+            };
+            const token = getCookie('access_token') || undefined;
+            await invoke('open_cli_window', { xgenToken: token });
         } catch (e) {
             console.error('Failed to open CLI window:', e);
         }

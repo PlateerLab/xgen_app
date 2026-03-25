@@ -14,20 +14,36 @@ use crate::services::{LlmClient, XgenApiClient};
 use crate::services::llm_client::ChatMessage;
 use crate::state::AppState;
 
-/// Open AI CLI in a separate window
+/// Open AI CLI in a separate window with auth token
 #[tauri::command]
-pub async fn open_cli_window(app: AppHandle) -> Result<()> {
+pub async fn open_cli_window(
+    app: AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    xgen_token: Option<String>,
+) -> Result<()> {
+    // Store token in CLI session for later use
+    if let Some(token) = &xgen_token {
+        let mut session = state.cli_session.write().await;
+        session.xgen_token = Some(token.clone());
+    }
+
     // If window already exists, focus it
     if let Some(window) = app.get_webview_window("cli") {
         let _ = window.set_focus();
         return Ok(());
     }
 
-    // Create new CLI window
+    // Pass token as query param so cli.html can use it
+    let url = if let Some(token) = &xgen_token {
+        format!("cli.html?token={}", token)
+    } else {
+        "cli.html".to_string()
+    };
+
     let _window = WebviewWindowBuilder::new(
         &app,
         "cli",
-        tauri::WebviewUrl::App("cli.html".into()),
+        tauri::WebviewUrl::App(url.into()),
     )
     .title("XGEN AI CLI")
     .inner_size(700.0, 500.0)
@@ -72,8 +88,12 @@ pub async fn cli_send_message(
     let base_url = state.get_server_url().await
         .unwrap_or_else(|| "https://xgen.x2bee.com".to_string());
 
-    // Use token from frontend auth (passed from cookie)
-    let xgen_api = XgenApiClient::new(base_url, xgen_token);
+    // Use token: prefer passed token, fallback to session stored token
+    let token = xgen_token.or_else(|| {
+        let session = state.cli_session.try_read().ok();
+        session.and_then(|s| s.xgen_token.clone())
+    });
+    let xgen_api = XgenApiClient::new(base_url, token);
 
     // Create LLM client from XGEN backend config with optional provider/model
     let llm = LlmClient::from_xgen(
@@ -158,7 +178,11 @@ pub async fn cli_list_providers(
 ) -> Result<Value> {
     let base_url = state.get_server_url().await
         .unwrap_or_else(|| "https://xgen.x2bee.com".to_string());
-    let xgen_api = XgenApiClient::new(base_url, xgen_token);
+    let token = xgen_token.or_else(|| {
+        let session = state.cli_session.try_read().ok();
+        session.and_then(|s| s.xgen_token.clone())
+    });
+    let xgen_api = XgenApiClient::new(base_url, token);
     let providers = xgen_api.list_available_providers().await?;
     Ok(serde_json::to_value(providers).unwrap_or_default())
 }
