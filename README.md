@@ -1,214 +1,198 @@
 # XGEN App
 
-XGEN 프론트엔드를 Tauri 데스크톱 앱 또는 Docker 웹 서비스로 배포하는 프로젝트입니다.
+XGEN AI 플랫폼의 데스크톱 앱. Tauri 기반으로 xgen-frontend를 로컬 번들링하고, AI CLI를 통해 자연어로 XGEN API를 제어할 수 있습니다.
 
----
-
-## 🎯 사용 모드 안내
-
-XGEN은 **배포 방식**에 따라 사용 가능한 모드가 다릅니다:
-
-| 배포 방식 | 로컬 모드 | 서버 모드 |
-|----------|:--------:|:--------:|
-| 🖥️ **데스크톱 앱** (Tauri) | ✅ | ✅ |
-| 🌐 **웹 서비스** (Docker) | ❌ | ✅ |
-
-> 💡 **로컬 모드**는 데스크톱 앱에서만 사용 가능합니다. 웹 버전은 항상 서버에 연결됩니다.
-
-### 🏠 로컬 모드 (Standalone) - 데스크톱 앱 전용
-
-**인터넷 없이 내 컴퓨터에서 AI 실행** *(Tauri 앱에서만 사용 가능)*
+## 아키텍처
 
 ```
-┌─────────────┐     ┌─────────────┐
-│   XGEN 앱   │ ──▶ │  내 컴퓨터   │
-│   (화면)    │     │  (AI 모델)  │
-└─────────────┘     └─────────────┘
+┌──────────────────────────────────────────────────────┐
+│  XGEN Desktop App (Tauri)                            │
+│                                                      │
+│  ┌─────────────────────┐  ┌───────────────────────┐  │
+│  │  XGEN Frontend       │  │  AI CLI Window        │  │
+│  │  (Next.js 정적빌드)  │  │  (별도 윈도우)         │  │
+│  │                      │  │                       │  │
+│  │  워크플로우 편집기    │  │  자연어 입력           │  │
+│  │  RAG 관리            │  │  → LLM Tool Use       │  │
+│  │  채팅 / 설정         │  │  → XGEN API 자동 호출  │  │
+│  └──────────┬───────────┘  └──────────┬────────────┘  │
+│             │ HTTP                    │ Tauri IPC      │
+│             ▼                         ▼                │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │  Tauri Rust Backend                              │  │
+│  │  - XGEN API Client (reqwest)                     │  │
+│  │  - Multi-Provider LLM Client (Claude/GPT/Gemini) │  │
+│  │  - CLI Session Manager                           │  │
+│  │  - Proxy / Tunnel / Sidecar                      │  │
+│  └────────────────────────┬────────────────────────┘  │
+└───────────────────────────┼───────────────────────────┘
+                            │ HTTPS
+                            ▼
+                ┌──────────────────────┐
+                │  xgen.x2bee.com      │
+                │  (Backend Gateway)   │
+                └──────────────────────┘
 ```
-
-| 장점 | 단점 |
-|------|------|
-| ✅ 인터넷 불필요 | ⚠️ 컴퓨터 성능 필요 (GPU 권장) |
-| ✅ 데이터가 내 PC에만 저장 | ⚠️ 일부 기능 제한 |
-| ✅ 빠른 응답 속도 | |
-
-**적합한 사용자:**
-- 보안이 중요한 업무
-- 인터넷이 불안정한 환경
-- 개인 프라이버시가 중요한 경우
-
----
-
-### 🌐 서버 모드 (Connected)
-
-**서버에 연결하여 모든 기능 사용**
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   XGEN 앱   │ ──▶ │   Gateway   │ ──▶ │  AI 서버들   │
-│   (화면)    │     │   서버      │     │  (클라우드)  │
-└─────────────┘     └─────────────┘     └─────────────┘
-```
-
-| 장점 | 단점 |
-|------|------|
-| ✅ 모든 기능 사용 가능 | ⚠️ 인터넷 필요 |
-| ✅ 강력한 AI 모델 사용 | ⚠️ 서버 비용 발생 가능 |
-| ✅ 파일 업로드, RAG 검색 등 | |
-
-**적합한 사용자:**
-- 팀으로 협업하는 경우
-- 고성능 AI가 필요한 경우
-- 워크플로우, 문서 검색 기능 사용
-
----
-
-### 🔄 모드 전환 방법 (데스크톱 앱 전용)
-
-> ℹ️ 웹 버전은 자동으로 서버 모드로 동작하며, 모드 전환이 필요 없습니다.
-
-#### 방법 1: 앱 설정 화면에서 변경 (TODO)
-
-> ⚠️ **현재 개발 중**: 설정 UI에서 모드 전환 기능이 추가될 예정입니다.
-
-완성되면 아래와 같이 사용할 수 있습니다:
-```
-┌────────────────────────────────────────────────────┐
-│  XGEN                    [🔌 로컬 모드 ▼]  [설정]  │
-│                              ↑                     │
-│                         여기를 클릭!               │
-└────────────────────────────────────────────────────┘
-```
-
-#### 방법 2: 개발자 도구 콘솔 사용 (고급)
-`F12` 또는 `Ctrl+Shift+I`로 개발자 도구를 열고 콘솔에서 입력:
-
-```javascript
-// 현재 모드 확인
-await window.__TAURI__.core.invoke('get_app_mode')
-
-// 서버 모드로 전환
-await window.__TAURI__.core.invoke('set_app_mode', {
-  mode: 'connected',
-  serverUrl: 'http://localhost:8000'
-})
-
-// 로컬 모드로 전환
-await window.__TAURI__.core.invoke('set_app_mode', {
-  mode: 'standalone',
-  serverUrl: null
-})
-```
-
-**서버 주소 예시:**
-- 로컬 Docker: `http://localhost:8000`
-- 회사 서버: `http://xgen.company.com:8000`
-
-> 💡 **팁**: 서버 모드 전환 전에 Docker 서비스가 실행 중인지 확인하세요!
-
----
-
-### 📊 기능 비교표
-
-| 기능 | 로컬 모드 | 서버 모드 |
-|------|:--------:|:--------:|
-| AI 채팅 | ✅ | ✅ |
-| 로컬 모델 사용 | ✅ | ❌ |
-| 클라우드 모델 (GPT 등) | ❌ | ✅ |
-| 워크플로우 실행 | ❌ | ✅ |
-| 문서 업로드 & RAG | ❌ | ✅ |
-| MCP 도구 | ✅ | ✅ |
-| 오프라인 사용 | ✅ | ❌ |
-
----
 
 ## 프로젝트 구조
 
 ```
 xgen_app/
+├── src-tauri/                    # Tauri Rust 백엔드
+│   ├── src/
+│   │   ├── commands/
+│   │   │   ├── cli.rs            # AI CLI IPC 커맨드 (send, history, clear, providers)
+│   │   │   ├── proxy.rs          # 로컬 LLM 프록시
+│   │   │   ├── settings.rs       # 앱 설정
+│   │   │   └── ...
+│   │   ├── services/
+│   │   │   ├── xgen_api.rs       # XGEN REST API 클라이언트 + Tool 정의
+│   │   │   ├── llm_client.rs     # 다중 LLM Provider 클라이언트 (SSE 스트리밍)
+│   │   │   └── ...
+│   │   ├── state/
+│   │   │   └── app_state.rs      # AppState + CliSession
+│   │   └── lib.rs                # Tauri 앱 엔트리포인트
+│   ├── capabilities/
+│   │   └── default.json          # IPC 권한 (main + cli 윈도우)
+│   ├── tauri.conf.json           # Tauri 설정
+│   └── tests/
+│       └── cli_integration.rs    # XGEN API + LLM 통합 테스트
+├── src-cli/
+│   ├── cli.html                  # AI CLI 독립 윈도우 (vanilla JS)
+│   └── cliSection/               # (레거시) React CLI 컴포넌트
 ├── scripts/
-│   ├── sync-frontend.sh    # 프론트엔드 소스 동기화
-│   └── build.sh            # 빌드 스크립트
-├── src-tauri/              # Tauri 데스크톱 앱 설정
-├── frontend/               # (빌드 시 자동 생성) xgen-frontend 소스
-├── Dockerfile              # 웹 배포용 이미지
-└── docker-compose.yml      # 웹 배포용 Compose
+│   ├── build.sh                  # 로컬 빌드 스크립트
+│   ├── sync-frontend.sh          # GitLab에서 xgen-frontend clone
+│   ├── patch-frontend.sh         # Tauri 정적 빌드용 패치
+│   └── patch-sidebar-cli.js      # 사이드바 AI CLI 버튼 주입
+├── frontend/                     # (빌드 시 자동 생성) xgen-frontend 소스
+└── .github/workflows/
+    └── build-windows.yml         # CI: Windows + macOS 빌드
 ```
 
-## 설치
+## AI CLI
 
-### 사전 요구사항
+사이드바의 **⚡ AI CLI** 버튼을 클릭하면 별도 터미널 창이 열립니다.
 
-**데스크톱 앱 빌드 시:**
-- Node.js 20+
-- Rust ([rustup.rs](https://rustup.rs/))
-- Tauri CLI: `cargo install tauri-cli`
+### 기능
+- 자연어로 XGEN API 제어
+- LLM Tool Use로 자동 API 호출 (워크플로우, 스케줄, 노드, 도구 등)
+- SSE 스트리밍 실시간 응답
+- XGEN 백엔드의 LLM 설정을 자동으로 사용 (별도 API 키 불필요)
 
-**웹 배포 시:**
-- Docker & Docker Compose
+### 지원 LLM Provider
+
+| Provider | API 형식 | 모델 예시 |
+|----------|---------|----------|
+| **Anthropic** (기본) | Claude Messages API | claude-sonnet-4-20250514 |
+| **OpenAI** | Chat Completions API | gpt-4o-2024-11-20 |
+| **Gemini** | Google AI API | gemini-2.5-flash |
+| **vLLM / SGL** | OpenAI 호환 API | (커스텀 모델) |
+
+드롭다운에서 provider를 전환할 수 있으며, XGEN 백엔드에 설정된 provider만 표시됩니다.
+
+### 지원 Tool (XGEN API)
+
+| Tool | 설명 |
+|------|------|
+| `list_workflows` | 워크플로우 목록 조회 |
+| `get_workflow` | 워크플로우 상세 조회 |
+| `save_workflow` | 워크플로우 생성/수정 |
+| `execute_workflow` | 워크플로우 실행 |
+| `list_schedules` | 스케줄 목록 조회 |
+| `create_schedule` | 스케줄 생성 (cron) |
+| `list_nodes` | 노드/에이전트 목록 |
+| `list_tools` | 등록된 도구 목록 |
+| `get_llm_status` | LLM 상태 확인 |
 
 ## 빌드
 
-### 데스크톱 앱 (Tauri)
+### 사전 요구사항
+
+- Node.js 20+
+- Rust ([rustup.rs](https://rustup.rs/))
+- Tauri CLI: `cargo install tauri-cli --version "^2"`
+
+### 로컬 빌드
 
 ```bash
-# 프로덕션 빌드
+# 전체 빌드 (프론트 동기화 → 패치 → 빌드)
 ./scripts/build.sh
 
 # 개발 모드 (핫리로드)
 ./scripts/build.sh --dev
 
-# 소스 동기화 건너뛰기
+# 프론트 동기화 건너뛰기 (이미 있을 때)
 ./scripts/build.sh --skip-sync
 ```
 
-**빌드 결과물:**
-- macOS: `src-tauri/target/release/bundle/macos/XGEN.app`
-- Windows: `src-tauri/target/release/XGEN.exe`
-- Linux: `src-tauri/target/release/bundle/`
+### CI 빌드 (GitHub Actions)
 
-### 웹 서비스 (Docker)
+`main` 브랜치에 push하면 자동으로 Windows + macOS 빌드가 실행됩니다.
 
-```bash
-# 이미지 빌드
-docker-compose build
-
-# 실행
-docker-compose up -d
-
-# 개발 모드 (로컬 소스 마운트)
-docker-compose --profile dev up xgen-frontend-dev
+빌드 파이프라인:
+```
+GitLab clone (xgen-frontend)
+  → patch-frontend.sh (API Routes 제거, 정적 export 패치, CLI 주입)
+  → npm install & build
+  → cli.html 복사
+  → cargo tauri build
+  → 아티팩트 업로드 (DMG, MSI, NSIS)
 ```
 
-## 배포
+### 빌드 결과물
 
-### 환경 변수
+| 플랫폼 | 파일 |
+|--------|------|
+| macOS (Apple Silicon) | `XGEN_x.x.x_aarch64.dmg` |
+| Windows | `XGEN_x.x.x_x64_en-US.msi` / `XGEN_x.x.x_x64-setup.exe` |
+
+## 설치
+
+### macOS
+
+1. DMG 다운로드 → 앱을 Applications에 드래그
+2. 터미널에서 Gatekeeper 해제:
+   ```bash
+   find /Applications/XGEN.app -exec xattr -c {} \;
+   ```
+3. 앱 실행
+
+### Windows
+
+MSI 또는 NSIS 설치 파일 실행.
+
+## 환경 변수
 
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
 | `FRONTEND_BRANCH` | main | 빌드할 xgen-frontend 브랜치 |
-| `NEXT_PUBLIC_BACKEND_HOST` | http://localhost | 백엔드 API 호스트 |
-| `NEXT_PUBLIC_BACKEND_PORT` | 8000 | 백엔드 API 포트 |
+| `NEXT_PUBLIC_BACKEND_HOST` | https://xgen.x2bee.com | 백엔드 API 호스트 |
+| `NEXT_PUBLIC_BACKEND_PORT` | (없음) | 백엔드 API 포트 |
+| `TAURI_ENV` | true | Tauri 정적 export 활성화 |
+| `GITLAB_TOKEN` | - | GitLab clone용 토큰 (CI secret) |
 
-### 특정 브랜치 빌드
+## 개발
 
-```bash
-# 로컬 빌드
-FRONTEND_BRANCH=develop ./scripts/build.sh
-
-# Docker 빌드
-docker-compose build --build-arg FRONTEND_BRANCH=develop
-```
-
-### 프로덕션 배포
+### Rust 테스트
 
 ```bash
-# 환경 변수 설정 후 실행
-NEXT_PUBLIC_BACKEND_HOST=https://api.example.com \
-NEXT_PUBLIC_BACKEND_PORT=443 \
-docker-compose up -d
+cd src-tauri
+
+# 통합 테스트 (XGEN API + LLM 연동)
+cargo test --test cli_integration -- --nocapture
+
+# 컴파일 체크
+cargo check
 ```
 
-## 포트
+### 프론트 패치 테스트
 
-- **3000**: 프론트엔드 웹 서비스
+```bash
+# 패치 스크립트 단독 실행
+FRONTEND_DIR=/path/to/frontend bash scripts/patch-frontend.sh
+```
+
+## 릴리즈
+
+[GitHub Releases](https://github.com/PlateerLab/xgen_app/releases)에서 최신 빌드를 다운로드할 수 있습니다.
