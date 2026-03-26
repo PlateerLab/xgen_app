@@ -83,6 +83,7 @@ if (usesSidebarLayout) {
     }
 
     // 3. Add state + handler after quickLogout
+    // NOTE: useAuth() already provides user.access_token — no need for document.cookie
     content = content.replace(
         /const \{ quickLogout \} = useQuickLogout\(\);/,
         `const { quickLogout } = useQuickLogout();
@@ -93,11 +94,9 @@ if (usesSidebarLayout) {
     const openCliWindow = async () => {
         try {
             const { invoke } = await import('@tauri-apps/api/core');
-            const getCookie = (name: string) => {
-                const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-                return match ? match[2] : null;
-            };
-            const token = getCookie('access_token') || undefined;
+            // Get token directly from CookieProvider context (user object)
+            const token = user?.access_token || undefined;
+            console.log('[AI CLI] Opening with token:', token ? token.substring(0, 20) + '...' : 'NONE');
             await invoke('open_cli_window', { xgenToken: token });
         } catch (e) {
             console.error('Failed to open CLI window:', e);

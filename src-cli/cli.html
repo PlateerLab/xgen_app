@@ -202,21 +202,45 @@ let isLoading = false;
 let streamingText = '';
 let currentStreamEl = null;
 
-// Get auth token: URL param → cookie → Tauri state
-function getToken() {
+// Auth token cache
+let cachedToken = null;
+
+// Get auth token: URL param → cookie → Rust session
+function getTokenSync() {
+  if (cachedToken) return cachedToken;
   // 1. URL query param (passed by open_cli_window)
   const params = new URLSearchParams(window.location.search);
   const paramToken = params.get('token');
   if (paramToken) {
-    console.log('[CLI] Token from URL param:', paramToken.substring(0, 20) + '...');
+    console.log('[CLI] Token from URL param');
+    cachedToken = paramToken;
     return paramToken;
   }
   // 2. Cookie fallback (same origin in Tauri webview)
   const match = document.cookie.match(/(^| )access_token=([^;]+)/);
   const cookieToken = match ? decodeURIComponent(match[2]) : null;
   if (cookieToken) {
-    console.log('[CLI] Token from cookie:', cookieToken.substring(0, 20) + '...');
+    console.log('[CLI] Token from cookie');
+    cachedToken = cookieToken;
     return cookieToken;
+  }
+  return null;
+}
+
+// Async token getter: also tries Rust session as last resort
+async function getToken() {
+  const syncToken = getTokenSync();
+  if (syncToken) return syncToken;
+  // 3. Rust session fallback (token stored when open_cli_window was called)
+  try {
+    const rustToken = await invoke('cli_get_token');
+    if (rustToken) {
+      console.log('[CLI] Token from Rust session');
+      cachedToken = rustToken;
+      return rustToken;
+    }
+  } catch (e) {
+    console.warn('[CLI] Failed to get token from Rust:', e);
   }
   console.warn('[CLI] No auth token found!');
   return null;
@@ -225,7 +249,7 @@ function getToken() {
 // Load providers
 async function loadProviders() {
   try {
-    const token = getToken();
+    const token = await getToken();
     const providers = await invoke('cli_list_providers', { xgenToken: token });
     const available = providers.filter(p => p.configured && p.available);
     providerSelect.innerHTML = available.map(p =>
@@ -291,7 +315,7 @@ window.sendMessage = async function() {
   currentStreamEl = addMessage('assistant', '');
 
   try {
-    const token = getToken();
+    const token = await getToken();
     await invoke('cli_send_message', {
       message: text,
       xgenToken: token,
@@ -379,11 +403,15 @@ inputEl.addEventListener('input', () => {
 });
 
 // Initialize
-const initToken = getToken();
-if (!initToken) {
-  addMessage('system', '⚠️ 인증 토큰이 없습니다. 로그인 후 AI CLI를 다시 열어주세요.');
-}
-loadProviders();
+(async () => {
+  const initToken = await getToken();
+  if (!initToken) {
+    addMessage('system', '⚠️ 인증 토큰이 없습니다. 로그인 후 AI CLI를 다시 열어주세요.');
+  } else {
+    addMessage('system', '✅ 인증 완료. 명령을 입력하세요.');
+  }
+  loadProviders();
+})();
 </script>
 </body>
 </html>
