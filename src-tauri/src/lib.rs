@@ -28,15 +28,23 @@ async fn auto_init_app_mode(app: &tauri::AppHandle) -> Result<(), String> {
 
     let config_path = config_dir.join("settings.json");
 
-    // Check if settings file exists — 없으면 기본 Connected 모드 (xgen.x2bee.com)
+    // Check if settings file exists — 없으면 환경변수 또는 기본값으로 Connected 모드
     if !config_path.exists() {
-        log::info!("No settings file found, defaulting to Connected mode (xgen.x2bee.com)");
-        let state = app.state::<Arc<AppState>>();
-        let default_url = "https://xgen.x2bee.com".to_string();
-        let mut mode = state.app_mode.write().await;
-        *mode = state::AppMode::Connected { server_url: default_url.clone() };
-        let mut gateway = state.gateway_url.write().await;
-        *gateway = Some(default_url);
+        let default_url = std::env::var("XGEN_SERVER_URL")
+            .unwrap_or_else(|_| "https://xgen.x2bee.com".to_string());
+        let default_mode = std::env::var("XGEN_APP_MODE")
+            .unwrap_or_else(|_| "connected".to_string());
+
+        if default_mode == "connected" {
+            log::info!("No settings file, using {} mode: {}", default_mode, default_url);
+            let state = app.state::<Arc<AppState>>();
+            let mut mode = state.app_mode.write().await;
+            *mode = state::AppMode::Connected { server_url: default_url.clone() };
+            let mut gateway = state.gateway_url.write().await;
+            *gateway = Some(default_url);
+        } else {
+            log::info!("No settings file, using Standalone mode");
+        }
         return Ok(());
     }
 

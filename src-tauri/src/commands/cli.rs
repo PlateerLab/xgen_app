@@ -86,6 +86,7 @@ pub async fn cli_send_message(
 ) -> Result<CliResponse> {
     // Get XGEN API base URL
     let base_url = state.get_server_url().await
+        .or_else(|| std::env::var("XGEN_SERVER_URL").ok())
         .unwrap_or_else(|| "https://xgen.x2bee.com".to_string());
 
     // Use token: prefer passed token, fallback to session stored token
@@ -177,6 +178,7 @@ pub async fn cli_list_providers(
     xgen_token: Option<String>,
 ) -> Result<Value> {
     let base_url = state.get_server_url().await
+        .or_else(|| std::env::var("XGEN_SERVER_URL").ok())
         .unwrap_or_else(|| "https://xgen.x2bee.com".to_string());
     let token = xgen_token.or_else(|| {
         let session = state.cli_session.try_read().ok();
