@@ -105,17 +105,111 @@ pub fn meta_tool_definitions() -> Vec<Value> {
         }),
         serde_json::json!({
             "name": "navigate",
-            "description": "Navigate the main XGEN window to a related page. Use the 'Related page' from search_tools results. Call this AFTER call_tool to show the user the relevant UI page.",
+            "description": "Navigate the main XGEN window to a page. Only use when the user explicitly asks to go somewhere.",
             "input_schema": {
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Page path from search results (e.g. '/main?view=workflows', '/admin?view=dashboard', '/main?view=canvas')"
+                        "description": "Page path (e.g. '/main?view=workflows', '/admin?view=dashboard', '/main?view=canvas')"
                     }
                 },
                 "required": ["path"]
             }
+        }),
+        // ============================================================
+        // Canvas tools — 캔버스 워크플로우 조작 (프론트엔드에서 실행)
+        // ============================================================
+        serde_json::json!({
+            "name": "canvas_get_nodes",
+            "description": "Get the list of all nodes currently on the canvas with their types, positions, and parameter values.",
+            "input_schema": { "type": "object", "properties": {} }
+        }),
+        serde_json::json!({
+            "name": "canvas_get_available_nodes",
+            "description": "Get all available node types that can be added to the canvas, grouped by category (agents, chat_models, document_loaders, mcp, tools, etc.).",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "description": "Optional category filter (e.g. 'agents', 'document_loaders', 'mcp', 'tools')"
+                    }
+                }
+            }
+        }),
+        serde_json::json!({
+            "name": "canvas_add_node",
+            "description": "Add a new node to the canvas. The node will be auto-positioned if position is not specified.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "node_type": {
+                        "type": "string",
+                        "description": "Node type ID from canvas_get_available_nodes (e.g. 'agents/xgen', 'document_loaders/Qdrant', 'tools/input_string', 'tools/print_agent_output')"
+                    },
+                    "position": {
+                        "type": "object",
+                        "description": "Optional {x, y} position on canvas",
+                        "properties": { "x": {"type":"number"}, "y": {"type":"number"} }
+                    }
+                },
+                "required": ["node_type"]
+            }
+        }),
+        serde_json::json!({
+            "name": "canvas_remove_node",
+            "description": "Remove a node from the canvas by its ID.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "node_id": { "type": "string", "description": "Node ID to remove" }
+                },
+                "required": ["node_id"]
+            }
+        }),
+        serde_json::json!({
+            "name": "canvas_connect",
+            "description": "Connect two nodes by their ports. Creates an edge from source output to target input.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "source_node": { "type": "string", "description": "Source node ID" },
+                    "source_port": { "type": "string", "description": "Source output port name" },
+                    "target_node": { "type": "string", "description": "Target node ID" },
+                    "target_port": { "type": "string", "description": "Target input port name" }
+                },
+                "required": ["source_node", "source_port", "target_node", "target_port"]
+            }
+        }),
+        serde_json::json!({
+            "name": "canvas_disconnect",
+            "description": "Remove an edge (connection) between nodes.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "edge_id": { "type": "string", "description": "Edge ID to remove" }
+                },
+                "required": ["edge_id"]
+            }
+        }),
+        serde_json::json!({
+            "name": "canvas_update_node_param",
+            "description": "Update a parameter value of a node on the canvas (e.g. set collection name on RAG node, change LLM model).",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "node_id": { "type": "string", "description": "Target node ID" },
+                    "param_name": { "type": "string", "description": "Parameter name to update" },
+                    "value": { "description": "New value for the parameter" }
+                },
+                "required": ["node_id", "param_name", "value"]
+            }
+        }),
+        serde_json::json!({
+            "name": "canvas_save",
+            "description": "Save the current workflow to the server.",
+            "input_schema": { "type": "object", "properties": {} }
         }),
     ]
 }

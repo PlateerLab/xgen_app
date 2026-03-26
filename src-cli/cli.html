@@ -376,6 +376,9 @@ listen('cli:event', (event) => {
           tc.textContent = `⚡ ${data.input?.tool_name || 'calling...'}`;
         } else if (name === 'navigate') {
           tc.textContent = `📄 ${data.input?.path || 'navigating...'}`;
+        } else if (name.startsWith('canvas_')) {
+          const action = name.replace('canvas_', '');
+          tc.textContent = `🎨 canvas: ${action}`;
         } else {
           tc.textContent = `⚡ ${name}`;
         }

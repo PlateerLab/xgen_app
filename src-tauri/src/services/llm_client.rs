@@ -7,7 +7,7 @@
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Listener};
 
 use crate::error::{AppError, Result};
 use crate::services::XgenApiClient;
@@ -75,24 +75,36 @@ impl LlmClient {
     }
 
     fn system_prompt() -> &'static str {
-        r#"당신은 XGEN AI 플랫폼 어시스턴트입니다.
+        r#"당신은 XGEN 워크플로우 빌더 어시스턴트입니다.
+캔버스에서 워크플로우를 구성하고, API를 호출하며, 사용자 요청을 처리합니다.
 
 도구 사용 규칙:
-1. 사용자 요청을 처리하려면 먼저 search_tools로 관련 API를 검색하세요.
-   - 검색 쿼리는 반드시 영문 키워드로 작성하세요 (예: "execute workflow", "list agents", "create schedule").
-   - 한국어 요청이라도 영문으로 변환하여 검색하세요.
-   - 검색 결과가 부족하면 다른 키워드로 다시 검색하세요.
-2. 검색 결과에서 적절한 tool을 선택하고, call_tool로 호출하세요.
-   - tool_name은 검색 결과의 정확한 이름을 사용하세요.
-   - arguments는 검색 결과의 파라미터 스키마에 맞게 구성하세요.
-3. call_tool 실행 후, 검색 결과에 '📄 Related page'가 있으면 navigate로 해당 페이지를 열어주세요.
-   - API 호출 결과를 텍스트로 정리한 뒤, 관련 페이지로 자동 이동합니다.
-   - 사용자가 이동을 원하지 않을 수도 있으니 결과를 먼저 보여주세요.
-4. 일반 질문이나 tool이 필요 없는 경우에는 직접 답변하세요.
+
+[API 검색/호출]
+1. search_tools: XGEN API를 영문 키워드로 검색합니다.
+2. call_tool: 검색된 API를 실행합니다.
+
+[캔버스 조작] — 워크플로우 캔버스에서 직접 작업합니다.
+3. canvas_get_nodes: 현재 캔버스의 노드 목록을 확인합니다.
+4. canvas_get_available_nodes: 추가 가능한 노드 타입을 조회합니다.
+5. canvas_add_node: 노드를 추가합니다 (node_type 필수).
+6. canvas_remove_node: 노드를 삭제합니다.
+7. canvas_connect: 두 노드를 연결합니다 (source/target 포트 지정).
+8. canvas_update_node_param: 노드 파라미터를 변경합니다 (예: 컬렉션 선택, LLM 모델 변경).
+9. canvas_save: 워크플로우를 저장합니다.
+
+[기타]
+10. navigate: 사용자가 요청할 때만 다른 페이지로 이동합니다.
+
+작업 순서:
+- 워크플로우 구성 요청 → canvas_get_available_nodes → canvas_add_node → canvas_connect
+- 문서 인덱싱 → call_tool로 컬렉션 생성/인덱싱 → canvas_update_node_param으로 RAG 노드에 설정
+- 노드 설정 변경 → canvas_get_nodes로 현재 상태 확인 → canvas_update_node_param
+- 캔버스를 벗어나지 않고 작업하는 것이 기본입니다.
 
 응답 규칙:
-- API 결과는 핵심 정보만 추려서 한국어로 읽기 쉽게 정리하세요.
-- JSON을 그대로 보여주지 마세요."#
+- 한국어로 간결하게 답변하세요.
+- 캔버스 조작 결과는 어떤 변경이 이루어졌는지 요약하세요."#
     }
 
     // ============================================================
@@ -816,9 +828,53 @@ impl LlmClient {
                             "navigate" => {
                                 let path = tool_input["path"].as_str().unwrap_or("/");
                                 log::info!("navigate: {}", path);
-                                // Emit navigate event to the main window
                                 let _ = app.emit_to("main", "navigate", serde_json::json!({"path": path}));
                                 format!("Navigated to {}", path)
+                            }
+                            // Canvas tools — 프론트엔드로 이벤트 전달 후 결과 대기
+                            name if name.starts_with("canvas_") => {
+                                let request_id = uuid::Uuid::new_v4().to_string();
+                                log::info!("canvas command: {} (req: {})", name, request_id);
+
+                                // 메인 윈도우에 canvas 명령 전달
+                                let _ = app.emit_to("main", "canvas:command", serde_json::json!({
+                                    "requestId": request_id,
+                                    "action": name.strip_prefix("canvas_").unwrap_or(name),
+                                    "params": tool_input,
+                                }));
+
+                                // 결과 대기 (oneshot channel)
+                                let (tx, rx) = tokio::sync::oneshot::channel::<String>();
+                                let tx = std::sync::Arc::new(tokio::sync::Mutex::new(Some(tx)));
+                                let req_id_clone = request_id.clone();
+                                let tx_clone = tx.clone();
+
+                                // 결과 이벤트 리스너 등록
+                                let handler = app.listen("canvas:result", move |event: tauri::Event| {
+                                    let payload_str = event.payload();
+                                    if let Ok(payload) = serde_json::from_str::<serde_json::Value>(payload_str) {
+                                        if payload["requestId"].as_str() == Some(req_id_clone.as_str()) {
+                                            let result = payload["result"].to_string();
+                                            if let Ok(mut guard) = tx_clone.try_lock() {
+                                                if let Some(sender) = guard.take() {
+                                                    let _ = sender.send(result);
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
+
+                                // 5초 타임아웃으로 결과 대기
+                                let canvas_result = match tokio::time::timeout(
+                                    std::time::Duration::from_secs(5), rx
+                                ).await {
+                                    Ok(Ok(result)) => result,
+                                    Ok(Err(_)) => "Error: canvas response channel closed".to_string(),
+                                    Err(_) => "Error: canvas command timed out (5s)".to_string(),
+                                };
+
+                                app.unlisten(handler);
+                                canvas_result
                             }
                             _ => format!("Unknown tool: {}", tool_name),
                         };
