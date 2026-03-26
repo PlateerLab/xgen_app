@@ -205,6 +205,10 @@ fi
 echo "[PATCH] 사이드바 AI CLI 버튼 패치"
 node "$SCRIPT_DIR/patch-sidebar-cli.js" "$FRONTEND_DIR"
 
+# 7. 캔버스에 AI 챗봇 이벤트 핸들러 추가 (canvas:command 처리)
+echo "[PATCH] 캔버스 AI 챗봇 패치"
+node "$SCRIPT_DIR/patch-canvas-chatbot.js" "$FRONTEND_DIR"
+
 echo ""
 echo "================================================"
 echo "패치 완료!"
