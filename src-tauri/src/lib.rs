@@ -273,6 +273,7 @@ pub fn run() {
             commands::cli_send_message,
             commands::cli_get_history,
             commands::cli_clear_session,
+            commands::cli_set_token,
             commands::cli_get_token,
             commands::cli_get_session_info,
             commands::cli_list_providers,

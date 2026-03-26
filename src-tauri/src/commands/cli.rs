@@ -189,6 +189,17 @@ pub async fn cli_list_providers(
     Ok(serde_json::to_value(providers).unwrap_or_default())
 }
 
+/// Store auth token in CLI session (called by frontend after login)
+#[tauri::command]
+pub async fn cli_set_token(
+    state: tauri::State<'_, Arc<AppState>>,
+    token: String,
+) -> Result<()> {
+    let mut session = state.cli_session.write().await;
+    session.xgen_token = Some(token);
+    Ok(())
+}
+
 /// Get stored auth token from CLI session (fallback for when URL param is missing)
 #[tauri::command]
 pub async fn cli_get_token(

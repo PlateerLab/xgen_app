@@ -201,7 +201,11 @@ if [ -f "$CLI_HTML" ]; then
     echo "[OK] cli.html 준비 완료"
 fi
 
-# 6. 사이드바에 AI CLI 버튼 추가 (클릭 시 별도 윈도우 열기)
+# 6. API 인증 패치 (Tauri WKWebView에서 cookie 대신 localStorage/Rust 세션 사용)
+echo "[PATCH] API 인증 토큰 패치"
+node "$SCRIPT_DIR/patch-api-auth.js" "$FRONTEND_DIR"
+
+# 7. 사이드바에 AI CLI 버튼 추가 (클릭 시 별도 윈도우 열기)
 echo "[PATCH] 사이드바 AI CLI 버튼 패치"
 node "$SCRIPT_DIR/patch-sidebar-cli.js" "$FRONTEND_DIR"
 
