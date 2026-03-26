@@ -95,8 +95,12 @@ impl LlmClient {
 
 [기타]
 10. navigate: 사용자가 요청할 때만 다른 페이지로 이동합니다.
+    - 캔버스 열기: navigate('/canvas') (새 캔버스) 또는 navigate('/canvas?load=워크플로우이름') (기존 워크플로우)
+    - 워크플로우 목록: navigate('/main?view=workflows')
+    - 관리자: navigate('/admin?view=dashboard')
 
 작업 순서:
+- 캔버스 열기 요청 → navigate('/canvas') 또는 navigate('/canvas?load=이름')
 - 워크플로우 구성 요청 → canvas_get_available_nodes → canvas_add_node → canvas_connect
 - 문서 인덱싱 → call_tool로 컬렉션 생성/인덱싱 → canvas_update_node_param으로 RAG 노드에 설정
 - 노드 설정 변경 → canvas_get_nodes로 현재 상태 확인 → canvas_update_node_param

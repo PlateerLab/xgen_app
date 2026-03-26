@@ -23,7 +23,7 @@ fn get_page_for_api(api_path: &str) -> Option<&'static str> {
         ("/api/workflow/list", "/main?view=workflows"),
         ("/api/workflow/execute", "/main?view=workflows"),
         ("/api/workflow/store", "/main?view=workflows"),
-        ("/api/workflow/canvas", "/main?view=canvas"),
+        ("/api/workflow/canvas", "/canvas"),
         ("/api/workflow/trace", "/main?view=workflows"),
         ("/api/workflow/schedule", "/main?view=workflows"),
         // Chat
@@ -111,7 +111,7 @@ pub fn meta_tool_definitions() -> Vec<Value> {
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Page path (e.g. '/main?view=workflows', '/admin?view=dashboard', '/main?view=canvas')"
+                        "description": "Page path. Canvas: '/canvas' (new) or '/canvas?load=WorkflowName' (existing). Others: '/main?view=workflows', '/admin?view=dashboard'"
                     }
                 },
                 "required": ["path"]
