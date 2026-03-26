@@ -215,7 +215,7 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
         let content: Vec<Value> = content_blocks.iter().map(|b| {
             if b["type"].as_str() == Some("tool_use") {
                 let input_json = b["input_json"].as_str().unwrap_or("{}");
-                let input: Value = serde_json::from_str(input_json).unwrap_or_default();
+                let input: Value = serde_json::from_str(input_json).unwrap_or(serde_json::json!({}));
                 serde_json::json!({"type":"tool_use","id":b["id"],"name":b["name"],"input":input})
             } else { b.clone() }
         }).collect();
@@ -418,7 +418,7 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
         }
         for tc in &tool_calls {
             let args = tc["arguments"].as_str().unwrap_or("{}");
-            let input: Value = serde_json::from_str(args).unwrap_or_default();
+            let input: Value = serde_json::from_str(args).unwrap_or(serde_json::json!({}));
             content.push(serde_json::json!({
                 "type": "tool_use",
                 "id": tc["id"],
