@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # xgen_app Tauri 데스크톱 앱 빌드 스크립트
+# 0. graph-tool-call sidecar 바이너리 빌드
 # 1. xgen-frontend 소스 동기화
 # 2. 프론트엔드 의존성 설치
 # 3. Tauri 앱 빌드
@@ -62,6 +63,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 cd "$PROJECT_ROOT"
+
+# Step 0: graph-tool-call sidecar 빌드
+print_step "Step 0: graph-tool-call sidecar 빌드"
+if [ -f "$SCRIPT_DIR/build-sidecar.sh" ]; then
+    bash "$SCRIPT_DIR/build-sidecar.sh"
+else
+    print_warn "build-sidecar.sh 없음 — sidecar 빌드 건너뜀"
+    print_warn "graph-tool-call이 시스템 PATH에 있어야 합니다."
+fi
 
 # Step 1: 프론트엔드 소스 동기화
 if [ "$SKIP_SYNC" = false ]; then

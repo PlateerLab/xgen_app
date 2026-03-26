@@ -4,6 +4,9 @@
 # Tauri 빌드 결과물
 /src-tauri/target
 
+# Sidecar 바이너리 (빌드 시 자동 생성)
+/src-tauri/binaries/
+
 # Next.js 빌드 결과물
 /dist
 
