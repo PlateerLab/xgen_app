@@ -718,10 +718,13 @@ impl LlmClient {
                             _ => format!("Unknown tool: {}", tool_name),
                         };
 
+                        // Compress large tool results (JSON/HTML/text type-aware)
+                        let compressed = tool_search::compress_tool_result(&result);
+
                         tool_results.push(serde_json::json!({
                             "type": "tool_result",
                             "tool_use_id": tool_id,
-                            "content": result,
+                            "content": compressed,
                         }));
                     }
                 }
@@ -889,10 +892,13 @@ impl LlmClient {
                             data: serde_json::json!({"id":tool_id,"name":tool_name,"result_preview":result.chars().take(200).collect::<String>()}),
                         });
 
+                        // Compress large tool results (JSON/HTML/text type-aware)
+                        let compressed = tool_search::compress_tool_result(&result);
+
                         tool_results.push(serde_json::json!({
                             "type": "tool_result",
                             "tool_use_id": tool_id,
-                            "content": result,
+                            "content": compressed,
                         }));
                     }
                 }

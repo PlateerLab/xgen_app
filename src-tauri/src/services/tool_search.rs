@@ -15,6 +15,146 @@ use std::path::PathBuf;
 use crate::error::{AppError, Result};
 
 const DEFAULT_TOP_K: usize = 7;
+const MAX_RESULT_CHARS: usize = 6000;
+
+// ============================================================
+// Tool Result Compression
+// ============================================================
+
+/// tool result를 타입 감지 후 압축
+pub fn compress_tool_result(content: &str) -> String {
+    if content.len() <= MAX_RESULT_CHARS {
+        return content.to_string();
+    }
+
+    // JSON 감지
+    let trimmed = content.trim();
+    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+        if let Ok(json) = serde_json::from_str::<Value>(trimmed) {
+            return compress_json(&json, MAX_RESULT_CHARS);
+        }
+    }
+
+    // HTML 감지
+    if trimmed.contains("<html") || trimmed.contains("<!DOCTYPE") {
+        return compress_html(trimmed);
+    }
+
+    // 일반 텍스트: head + tail
+    compress_text(content, MAX_RESULT_CHARS)
+}
+
+/// JSON 압축: array → count + 샘플, object → headers 제거 + body 유지
+fn compress_json(value: &Value, max_chars: usize) -> String {
+    match value {
+        Value::Array(arr) => {
+            let count = arr.len();
+            if count == 0 {
+                return "[]".to_string();
+            }
+            // 샘플 3개 + 총 개수
+            let samples: Vec<&Value> = arr.iter().take(3).collect();
+            let sample_json = serde_json::to_string_pretty(&samples).unwrap_or_default();
+
+            // 샘플도 크면 각 항목에서 핵심 필드만
+            if sample_json.len() > max_chars / 2 {
+                let summaries: Vec<String> = arr.iter().take(5).map(|item| {
+                    summarize_json_object(item)
+                }).collect();
+                format!("[{} items total]\n{}\n... and {} more",
+                    count, summaries.join("\n"), count.saturating_sub(5))
+            } else {
+                format!("[{} items total, showing first 3]\n{}\n... and {} more",
+                    count, sample_json, count.saturating_sub(3))
+            }
+        }
+        Value::Object(obj) => {
+            // headers 키 제거, body/data 유지
+            let mut cleaned = serde_json::Map::new();
+            for (k, v) in obj {
+                match k.as_str() {
+                    "headers" | "request_id" => continue,  // 불필요한 메타 제거
+                    _ => { cleaned.insert(k.clone(), v.clone()); }
+                }
+            }
+            let result = serde_json::to_string_pretty(&Value::Object(cleaned)).unwrap_or_default();
+            if result.len() <= max_chars {
+                result
+            } else {
+                compress_text(&result, max_chars)
+            }
+        }
+        _ => {
+            let s = serde_json::to_string_pretty(value).unwrap_or_default();
+            compress_text(&s, max_chars)
+        }
+    }
+}
+
+/// JSON object의 핵심 필드만 한 줄로 요약
+fn summarize_json_object(value: &Value) -> String {
+    if let Some(obj) = value.as_object() {
+        let fields: Vec<String> = obj.iter()
+            .filter(|(k, _)| !["headers", "metadata", "edges", "nodes", "parameters", "data"].contains(&k.as_str()))
+            .take(5)
+            .map(|(k, v)| {
+                let val = match v {
+                    Value::String(s) => {
+                        if s.len() > 50 { format!("\"{}...\"", &s[..50]) } else { format!("\"{}\"", s) }
+                    }
+                    Value::Number(n) => n.to_string(),
+                    Value::Bool(b) => b.to_string(),
+                    Value::Array(a) => format!("[{} items]", a.len()),
+                    Value::Object(_) => "{...}".to_string(),
+                    Value::Null => "null".to_string(),
+                };
+                format!("{}: {}", k, val)
+            })
+            .collect();
+        format!("  {{{}}}", fields.join(", "))
+    } else {
+        format!("  {}", value)
+    }
+}
+
+/// HTML → 텍스트만 추출
+fn compress_html(html: &str) -> String {
+    // 간단 태그 제거
+    let mut text = html.to_string();
+    // style, script 블록 제거
+    while let Some(start) = text.find("<style") {
+        if let Some(end) = text[start..].find("</style>") {
+            text = format!("{}{}", &text[..start], &text[start + end + 8..]);
+        } else { break; }
+    }
+    while let Some(start) = text.find("<script") {
+        if let Some(end) = text[start..].find("</script>") {
+            text = format!("{}{}", &text[..start], &text[start + end + 9..]);
+        } else { break; }
+    }
+    // 모든 태그 제거
+    let mut result = String::new();
+    let mut in_tag = false;
+    for ch in text.chars() {
+        if ch == '<' { in_tag = true; continue; }
+        if ch == '>' { in_tag = false; result.push(' '); continue; }
+        if !in_tag { result.push(ch); }
+    }
+    // 연속 공백 정리
+    let cleaned: String = result.split_whitespace().collect::<Vec<_>>().join(" ");
+    compress_text(&format!("[HTML content] {}", cleaned), MAX_RESULT_CHARS)
+}
+
+/// 텍스트 head + tail 압축
+fn compress_text(text: &str, max_chars: usize) -> String {
+    if text.len() <= max_chars {
+        return text.to_string();
+    }
+    let head = max_chars * 4 / 5;  // 80% head
+    let tail = max_chars / 5;       // 20% tail
+    format!("{}...\n\n[{} chars omitted]\n\n...{}",
+        &text[..head], text.len() - head - tail, &text[text.len() - tail..])
+}
 
 /// API path prefix → 프론트엔드 페이지 매핑
 fn get_page_for_api(api_path: &str) -> Option<&'static str> {
