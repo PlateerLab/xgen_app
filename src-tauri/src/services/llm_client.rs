@@ -140,6 +140,7 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
         let mut buffer = String::new();
         let mut content_blocks: Vec<Value> = Vec::new();
         let mut current_text = String::new();
+        let mut current_block_is_text = false;
         let mut stop_reason: Option<String> = None;
 
         while let Some(chunk) = stream.next().await {
@@ -158,6 +159,7 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
                                 "content_block_start" => {
                                     let block = &event["content_block"];
                                     if block["type"].as_str() == Some("tool_use") {
+                                        current_block_is_text = false;
                                         content_blocks.push(serde_json::json!({
                                             "type": "tool_use",
                                             "id": block["id"],
@@ -170,6 +172,7 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
                                             data: serde_json::json!({"name": block["name"]}),
                                         });
                                     } else {
+                                        current_block_is_text = true;
                                         current_text.clear();
                                     }
                                 }
@@ -193,11 +196,14 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
                                     }
                                 }
                                 "content_block_stop" => {
-                                    if !current_text.is_empty() {
+                                    // Only push text block when the current block IS a text block
+                                    if current_block_is_text && !current_text.is_empty() {
                                         content_blocks.push(serde_json::json!({
                                             "type": "text", "text": current_text.clone(),
                                         }));
+                                        current_text.clear();
                                     }
+                                    current_block_is_text = false;
                                 }
                                 "message_delta" => {
                                     if let Some(r) = event["delta"]["stop_reason"].as_str() {
@@ -822,6 +828,28 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
                             "type": "tool_result",
                             "tool_use_id": tool_id,
                             "content": result,
+                        }));
+                    }
+                }
+
+                // Validate: every tool_use must have a matching tool_result
+                let tool_use_ids: Vec<String> = content.iter()
+                    .filter(|b| b["type"].as_str() == Some("tool_use"))
+                    .filter_map(|b| b["id"].as_str().map(|s| s.to_string()))
+                    .collect();
+                let tool_result_ids: Vec<String> = tool_results.iter()
+                    .filter_map(|r| r["tool_use_id"].as_str().map(|s| s.to_string()))
+                    .collect();
+                log::info!("tool_use IDs: {:?}, tool_result IDs: {:?}", tool_use_ids, tool_result_ids);
+
+                // Safety: add placeholder tool_result for any missing IDs
+                for use_id in &tool_use_ids {
+                    if !tool_result_ids.contains(use_id) {
+                        log::warn!("Missing tool_result for tool_use_id: {}", use_id);
+                        tool_results.push(serde_json::json!({
+                            "type": "tool_result",
+                            "tool_use_id": use_id,
+                            "content": "Error: tool execution skipped",
                         }));
                     }
                 }
