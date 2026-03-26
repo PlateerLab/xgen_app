@@ -374,6 +374,8 @@ listen('cli:event', (event) => {
           tc.textContent = `🔍 ${data.input?.query || 'searching...'}`;
         } else if (name === 'call_tool') {
           tc.textContent = `⚡ ${data.input?.tool_name || 'calling...'}`;
+        } else if (name === 'navigate') {
+          tc.textContent = `📄 ${data.input?.path || 'navigating...'}`;
         } else {
           tc.textContent = `⚡ ${name}`;
         }

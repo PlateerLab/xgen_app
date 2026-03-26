@@ -85,7 +85,10 @@ impl LlmClient {
 2. 검색 결과에서 적절한 tool을 선택하고, call_tool로 호출하세요.
    - tool_name은 검색 결과의 정확한 이름을 사용하세요.
    - arguments는 검색 결과의 파라미터 스키마에 맞게 구성하세요.
-3. 일반 질문이나 tool이 필요 없는 경우에는 직접 답변하세요.
+3. call_tool 실행 후, 검색 결과에 '📄 Related page'가 있으면 navigate로 해당 페이지를 열어주세요.
+   - API 호출 결과를 텍스트로 정리한 뒤, 관련 페이지로 자동 이동합니다.
+   - 사용자가 이동을 원하지 않을 수도 있으니 결과를 먼저 보여주세요.
+4. 일반 질문이나 tool이 필요 없는 경우에는 직접 답변하세요.
 
 응답 규칙:
 - API 결과는 핵심 정보만 추려서 한국어로 읽기 쉽게 정리하세요.
@@ -691,6 +694,11 @@ impl LlmClient {
                                     Err(e) => format!("Call error: {}", e),
                                 }
                             }
+                            "navigate" => {
+                                let path = tool_input["path"].as_str().unwrap_or("/");
+                                println!("  [navigate] {}", path);
+                                format!("Navigated to {}", path)
+                            }
                             _ => format!("Unknown tool: {}", tool_name),
                         };
 
@@ -804,6 +812,13 @@ impl LlmClient {
                                     Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
                                     Err(e) => format!("Call error: {}", e),
                                 }
+                            }
+                            "navigate" => {
+                                let path = tool_input["path"].as_str().unwrap_or("/");
+                                log::info!("navigate: {}", path);
+                                // Emit navigate event to the main window
+                                let _ = app.emit_to("main", "navigate", serde_json::json!({"path": path}));
+                                format!("Navigated to {}", path)
                             }
                             _ => format!("Unknown tool: {}", tool_name),
                         };

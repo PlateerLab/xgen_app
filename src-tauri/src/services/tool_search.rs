@@ -16,6 +16,50 @@ use crate::error::{AppError, Result};
 
 const DEFAULT_TOP_K: usize = 7;
 
+/// API path prefix → 프론트엔드 페이지 매핑
+fn get_page_for_api(api_path: &str) -> Option<&'static str> {
+    let mappings: &[(&str, &str)] = &[
+        // Workflow
+        ("/api/workflow/list", "/main?view=workflows"),
+        ("/api/workflow/execute", "/main?view=workflows"),
+        ("/api/workflow/store", "/main?view=workflows"),
+        ("/api/workflow/canvas", "/main?view=canvas"),
+        ("/api/workflow/trace", "/main?view=workflows"),
+        ("/api/workflow/schedule", "/main?view=workflows"),
+        // Chat
+        ("/api/chat", "/main?view=new-chat"),
+        ("/api/interaction", "/main?view=new-chat"),
+        // LLM / Config / Admin
+        ("/api/llm", "/admin?view=dashboard"),
+        ("/api/config", "/admin?view=dashboard"),
+        ("/api/admin", "/admin?view=dashboard"),
+        // Node / Tools
+        ("/api/node", "/main?view=workflows"),
+        ("/api/tools", "/main?view=workflows"),
+        // Documents / RAG
+        ("/api/documents", "/main?view=documents"),
+        ("/api/retrieval", "/main?view=documents"),
+        ("/api/embedding", "/admin?view=dashboard"),
+        // Prompt
+        ("/api/prompt", "/main?view=workflows"),
+        // Model
+        ("/api/model", "/modelOps?view=train-monitor"),
+        // Service Request
+        ("/api/service-request", "/main?view=service-request"),
+        // Support
+        ("/api/support", "/support?view=inquiry"),
+        // Main
+        ("/api/dashboard", "/main?view=main-dashboard"),
+    ];
+
+    for (prefix, page) in mappings {
+        if api_path.starts_with(prefix) {
+            return Some(page);
+        }
+    }
+    None
+}
+
 // ============================================================
 // Meta-tool definitions (LLM에 제공할 고정 tool 2개)
 // ============================================================
@@ -57,6 +101,20 @@ pub fn meta_tool_definitions() -> Vec<Value> {
                     }
                 },
                 "required": ["tool_name"]
+            }
+        }),
+        serde_json::json!({
+            "name": "navigate",
+            "description": "Navigate the main XGEN window to a related page. Use the 'Related page' from search_tools results. Call this AFTER call_tool to show the user the relevant UI page.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Page path from search results (e.g. '/main?view=workflows', '/admin?view=dashboard', '/main?view=canvas')"
+                    }
+                },
+                "required": ["path"]
             }
         }),
     ]
@@ -103,6 +161,11 @@ pub async fn search_tools_text(
             lines.push(format!("{}. {}", i + 1, name));
             lines.push(format!("   {} {}", method, path));
             lines.push(format!("   {}", desc));
+
+            // Related frontend page
+            if let Some(page) = get_page_for_api(path) {
+                lines.push(format!("   📄 Related page: {}", page));
+            }
 
             // Parameters
             if let Some(params) = tool["parameters"].as_array() {

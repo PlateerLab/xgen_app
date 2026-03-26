@@ -89,7 +89,21 @@ if (usesSidebarLayout) {
         `const { quickLogout } = useQuickLogout();
 
     const [isTauriApp, setIsTauriApp] = useState(false);
-    useEffect(() => { setIsTauriApp(isTauri()); }, []);
+    useEffect(() => {
+        setIsTauriApp(isTauri());
+        // Listen for navigate events from AI CLI
+        if (isTauri()) {
+            import('@tauri-apps/api/event').then(({ listen }) => {
+                listen('navigate', (event: any) => {
+                    const path = event.payload?.path;
+                    if (path) {
+                        console.log('[AI CLI] Navigate to:', path);
+                        router.push(path);
+                    }
+                });
+            }).catch(() => {});
+        }
+    }, []);
 
     const openCliWindow = async () => {
         try {
