@@ -202,10 +202,24 @@ let isLoading = false;
 let streamingText = '';
 let currentStreamEl = null;
 
-// Get auth token from URL query param (passed by open_cli_window)
+// Get auth token: URL param → cookie → Tauri state
 function getToken() {
+  // 1. URL query param (passed by open_cli_window)
   const params = new URLSearchParams(window.location.search);
-  return params.get('token') || null;
+  const paramToken = params.get('token');
+  if (paramToken) {
+    console.log('[CLI] Token from URL param:', paramToken.substring(0, 20) + '...');
+    return paramToken;
+  }
+  // 2. Cookie fallback (same origin in Tauri webview)
+  const match = document.cookie.match(/(^| )access_token=([^;]+)/);
+  const cookieToken = match ? decodeURIComponent(match[2]) : null;
+  if (cookieToken) {
+    console.log('[CLI] Token from cookie:', cookieToken.substring(0, 20) + '...');
+    return cookieToken;
+  }
+  console.warn('[CLI] No auth token found!');
+  return null;
 }
 
 // Load providers
@@ -365,6 +379,10 @@ inputEl.addEventListener('input', () => {
 });
 
 // Initialize
+const initToken = getToken();
+if (!initToken) {
+  addMessage('system', '⚠️ 인증 토큰이 없습니다. 로그인 후 AI CLI를 다시 열어주세요.');
+}
 loadProviders();
 </script>
 </body>

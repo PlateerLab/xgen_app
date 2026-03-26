@@ -280,7 +280,10 @@ pub async fn execute_tool_call(
     ]);
 
     if let Some(token) = auth_token {
+        log::info!("execute_tool_call: auth token present ({}...)", &token[..token.len().min(20)]);
         cmd.args(["--auth-token", token]);
+    } else {
+        log::warn!("execute_tool_call: NO auth token — API calls requiring auth will fail");
     }
 
     if !args_str.is_empty() && args_str != "{}" && args_str != "null" {
