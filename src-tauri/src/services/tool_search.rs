@@ -1,13 +1,12 @@
-//! Tool Search Service
+//! Tool Search Service — Gateway Mode
 //!
-//! graph-tool-call 바이너리(sidecar)를 사용하여 OpenAPI spec에서
-//! 사용자 쿼리에 관련된 tool을 검색하고, LLM tool_use 형식으로 변환합니다.
+//! graph-tool-call 바이너리(sidecar)를 통해 OpenAPI spec 기반
+//! API tool 검색 및 실행을 제공합니다.
 //!
-//! Flow:
-//! 1. graph-tool-call ingest → graph JSON 빌드 (캐싱)
-//! 2. graph-tool-call search → 관련 tool 이름 목록
-//! 3. graph JSON에서 해당 tool의 parameters 추출
-//! 4. Claude/OpenAI tool_use 형식으로 변환하여 반환
+//! Gateway Mode:
+//! - LLM에 search_tools + call_tool 2개 meta-tool만 제공
+//! - LLM이 직접 검색 쿼리를 생성하고 tool을 선택/호출
+//! - translate_query 같은 하드코딩 불필요
 
 use serde_json::Value;
 use std::collections::HashMap;
@@ -15,10 +14,191 @@ use std::path::PathBuf;
 
 use crate::error::{AppError, Result};
 
-const DEFAULT_TOP_K: usize = 5;
+const DEFAULT_TOP_K: usize = 7;
+
+// ============================================================
+// Meta-tool definitions (LLM에 제공할 고정 tool 2개)
+// ============================================================
+
+/// Gateway meta-tool 정의 반환 (search_tools + call_tool)
+pub fn meta_tool_definitions() -> Vec<Value> {
+    vec![
+        serde_json::json!({
+            "name": "search_tools",
+            "description": "Search available XGEN API tools by keyword. Returns tool names, descriptions, HTTP methods, paths, and parameter schemas. Use English keywords for best results. Always search first before calling a tool.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "English search keywords (e.g. 'execute workflow', 'list agents', 'create schedule', 'LLM status')"
+                    },
+                    "top_k": {
+                        "type": "integer",
+                        "description": "Number of results (default: 7)"
+                    }
+                },
+                "required": ["query"]
+            }
+        }),
+        serde_json::json!({
+            "name": "call_tool",
+            "description": "Execute an API tool found via search_tools. Pass the exact tool_name from search results and matching arguments.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "tool_name": {
+                        "type": "string",
+                        "description": "Exact tool name from search_tools results"
+                    },
+                    "arguments": {
+                        "type": "object",
+                        "description": "Tool arguments matching the parameter schema from search results"
+                    }
+                },
+                "required": ["tool_name"]
+            }
+        }),
+    ]
+}
+
+// ============================================================
+// search_tools meta-tool 실행
+// ============================================================
+
+/// search_tools: 쿼리로 API tool을 검색하고 상세 정보를 텍스트로 반환
+pub async fn search_tools_text(
+    query: &str,
+    openapi_source: &str,
+    top_k: Option<usize>,
+) -> Result<String> {
+    let bin = find_binary()?;
+    let k = top_k.unwrap_or(DEFAULT_TOP_K);
+
+    log::info!("search_tools: query='{}', top_k={}", query, k);
+
+    // graph 빌드 (캐싱)
+    let graph_path = ensure_graph(&bin, openapi_source).await?;
+
+    // search 실행
+    let tool_names = search_tool_names(&bin, query, openapi_source, k).await?;
+
+    if tool_names.is_empty() {
+        return Ok("No tools found. Try different English keywords.".into());
+    }
+
+    // graph에서 tool 상세 정보 로드
+    let graph_tools = load_graph_tools(&graph_path)?;
+
+    // LLM이 읽을 수 있는 텍스트로 포매팅
+    let mut lines = Vec::new();
+    lines.push(format!("Found {} tools for \"{}\":\n", tool_names.len(), query));
+
+    for (i, name) in tool_names.iter().enumerate() {
+        if let Some(tool) = graph_tools.get(name) {
+            let desc = tool["description"].as_str().unwrap_or("");
+            let method = tool["metadata"]["method"].as_str().unwrap_or("get").to_uppercase();
+            let path = tool["metadata"]["path"].as_str().unwrap_or("");
+
+            lines.push(format!("{}. {}", i + 1, name));
+            lines.push(format!("   {} {}", method, path));
+            lines.push(format!("   {}", desc));
+
+            // Parameters
+            if let Some(params) = tool["parameters"].as_array() {
+                if !params.is_empty() {
+                    lines.push("   Parameters:".to_string());
+                    for p in params {
+                        let pname = p["name"].as_str().unwrap_or("?");
+                        let ptype = p["type"].as_str().unwrap_or("string");
+                        let required = if p["required"].as_bool().unwrap_or(false) { ", REQUIRED" } else { "" };
+                        let pdesc = p["description"].as_str().unwrap_or("");
+                        let location = p["in"].as_str().unwrap_or("");
+
+                        let mut detail = format!("     - {} ({}{})", pname, ptype, required);
+                        if !location.is_empty() {
+                            detail.push_str(&format!(" [in: {}]", location));
+                        }
+                        if !pdesc.is_empty() {
+                            detail.push_str(&format!(" — {}", pdesc));
+                        }
+                        // enum values
+                        if let Some(enums) = p["enum"].as_array() {
+                            let vals: Vec<&str> = enums.iter().filter_map(|v| v.as_str()).collect();
+                            if !vals.is_empty() {
+                                detail.push_str(&format!(" [enum: {}]", vals.join(", ")));
+                            }
+                        }
+                        lines.push(detail);
+                    }
+                }
+            }
+            lines.push(String::new()); // blank line between tools
+        }
+    }
+
+    Ok(lines.join("\n"))
+}
+
+// ============================================================
+// call_tool meta-tool 실행 (기존 execute_tool_call)
+// ============================================================
+
+/// call_tool: graph-tool-call call로 API 직접 실행
+pub async fn execute_tool_call(
+    tool_name: &str,
+    args: &Value,
+    openapi_source: &str,
+    base_url: &str,
+    auth_token: Option<&str>,
+) -> Result<Value> {
+    let bin = find_binary()?;
+    let args_str = serde_json::to_string(args).unwrap_or_default();
+
+    log::info!("call_tool: {} args={}", tool_name, &args_str.chars().take(100).collect::<String>());
+
+    let mut cmd = tokio::process::Command::new(&bin);
+    cmd.args([
+        "call", tool_name,
+        "-s", openapi_source,
+        "--base-url", base_url,
+        "--tool", tool_name,
+        "--allow-private-hosts",
+    ]);
+
+    if let Some(token) = auth_token {
+        log::info!("call_tool: auth token present ({}...)", &token[..token.len().min(20)]);
+        cmd.args(["--auth-token", token]);
+    } else {
+        log::warn!("call_tool: NO auth token — API calls requiring auth will fail");
+    }
+
+    if !args_str.is_empty() && args_str != "{}" && args_str != "null" {
+        cmd.args(["--args", &args_str]);
+    }
+
+    let output = cmd.output().await
+        .map_err(|e| AppError::Cli(format!("call failed: {}", e)))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::Cli(format!("call failed: {}\n{}", stderr, stdout)));
+    }
+
+    // graph-tool-call call 출력: JSON (status, headers, body)
+    match serde_json::from_str::<Value>(&stdout) {
+        Ok(v) => Ok(v.get("body").cloned().unwrap_or(v)),
+        Err(_) => Ok(Value::String(stdout.to_string())),
+    }
+}
+
+// ============================================================
+// Internal helpers
+// ============================================================
 
 /// graph-tool-call sidecar 경로 찾기
-/// Tauri externalBin으로 번들된 바이너리를 우선 사용, 없으면 PATH에서 찾기
 fn find_binary() -> Result<String> {
     // 1. 환경변수 (개발/테스트용)
     if let Ok(path) = std::env::var("GRAPH_TOOL_CALL_BIN") {
@@ -28,19 +208,15 @@ fn find_binary() -> Result<String> {
     }
 
     // 2. Tauri 번들 sidecar (externalBin)
-    //    빌드 시 binaries/graph-tool-call-{target_triple} 형태로 번들됨
-    //    실행 시 앱 리소스 디렉토리에 graph-tool-call[-suffix] 로 배치
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             for name in &[
                 "graph-tool-call",
                 "graph-tool-call.exe",
-                // Tauri sidecar naming convention
                 &format!("graph-tool-call-{}", std::env::consts::ARCH),
             ] {
                 let p = dir.join(name);
                 if p.exists() {
-                    log::info!("Found bundled graph-tool-call: {}", p.display());
                     return Ok(p.to_string_lossy().to_string());
                 }
             }
@@ -53,7 +229,6 @@ fn find_binary() -> Result<String> {
             if output.status.success() {
                 let path = String::from_utf8_lossy(&output.stdout).lines().next().unwrap_or("").trim().to_string();
                 if !path.is_empty() && std::path::Path::new(&path).exists() {
-                    log::info!("Found graph-tool-call in PATH: {}", path);
                     return Ok(path);
                 }
             }
@@ -74,11 +249,10 @@ fn graph_cache_path(source: &str) -> PathBuf {
     std::env::temp_dir().join(format!("xgen-graph-{}.json", hash))
 }
 
-/// graph-tool-call ingest 실행 (캐싱)
+/// graph-tool-call ingest 실행 (5분 캐싱)
 async fn ensure_graph(bin: &str, source: &str) -> Result<PathBuf> {
     let path = graph_cache_path(source);
 
-    // 5분 이내 캐시면 재사용
     if path.exists() {
         if let Ok(meta) = std::fs::metadata(&path) {
             if let Ok(modified) = meta.modified() {
@@ -148,161 +322,4 @@ async fn search_tool_names(bin: &str, query: &str, source: &str, top_k: usize) -
     }
 
     Ok(names)
-}
-
-/// graph tool → Claude tool_use 형식으로 변환
-fn to_llm_tool_schema(tool: &Value) -> Value {
-    let name = tool["name"].as_str().unwrap_or("unknown");
-    let desc = tool["description"].as_str().unwrap_or("");
-    let method = tool["metadata"]["method"].as_str().unwrap_or("get");
-    let path = tool["metadata"]["path"].as_str().unwrap_or("");
-
-    let mut properties = serde_json::Map::new();
-    let mut required = Vec::new();
-
-    if let Some(params) = tool["parameters"].as_array() {
-        for param in params {
-            let param_name = param["name"].as_str().unwrap_or("").to_string();
-            let param_type = param["type"].as_str().unwrap_or("string");
-            let param_desc = param["description"].as_str().unwrap_or("");
-            let is_required = param["required"].as_bool().unwrap_or(false);
-
-            let mut prop = serde_json::json!({
-                "type": param_type,
-                "description": param_desc,
-            });
-
-            if let Some(enum_values) = param["enum"].as_array() {
-                prop["enum"] = Value::Array(enum_values.clone());
-            }
-
-            properties.insert(param_name.clone(), prop);
-            if is_required {
-                required.push(Value::String(param_name));
-            }
-        }
-    }
-
-    serde_json::json!({
-        "name": name,
-        "description": format!("{} [{} {}]", desc, method.to_uppercase(), path),
-        "input_schema": {
-            "type": "object",
-            "properties": properties,
-            "required": required,
-        }
-    })
-}
-
-/// 한국어 키워드를 영문 검색어로 변환 (graph-tool-call은 영문 검색이 정확)
-fn translate_query(query: &str) -> String {
-    let mut q = query.to_string();
-    let mappings = [
-        ("워크플로우", "workflow"), ("목록", "list"), ("조회", "list"),
-        ("보여줘", "list"), ("알려줘", "get"), ("확인", "status"),
-        ("실행", "execute"), ("생성", "create"), ("삭제", "delete"),
-        ("수정", "update"), ("저장", "save"), ("스케줄", "schedule"),
-        ("예약", "schedule"), ("노드", "node"), ("도구", "tool"),
-        ("에이전트", "agent"), ("모델", "model"), ("상태", "status"),
-        ("검색", "search"), ("문서", "document"), ("임베딩", "embedding"),
-        ("프롬프트", "prompt"), ("설정", "config"), ("인증", "auth"),
-        ("로그인", "login"), ("사용자", "user"), ("관리자", "admin"),
-        ("배포", "deploy"), ("배치", "batch"), ("히스토리", "history"),
-        ("로그", "log"), ("성능", "performance"),
-    ];
-    for (ko, en) in &mappings {
-        if q.contains(ko) {
-            q = q.replace(ko, en);
-        }
-    }
-    // 남은 한국어가 있으면 원본도 붙이기
-    if q != query {
-        q = format!("{}", q.trim());
-    }
-    q
-}
-
-/// 메인 API: 사용자 쿼리로 관련 tool을 검색하고 LLM tool schema로 반환
-pub async fn search_tools_for_llm(
-    query: &str,
-    openapi_source: &str,
-    top_k: Option<usize>,
-) -> Result<Vec<Value>> {
-    let bin = find_binary()?;
-    let k = top_k.unwrap_or(DEFAULT_TOP_K);
-
-    // 1. graph 빌드 (캐싱)
-    let graph_path = ensure_graph(&bin, openapi_source).await?;
-
-    // 2. search로 관련 tool 이름 찾기 (한국어 → 영문 변환)
-    let english_query = translate_query(query);
-    log::info!("Tool search: '{}' → '{}'", query, english_query);
-    let tool_names = search_tool_names(&bin, &english_query, openapi_source, k).await?;
-    log::info!("Found {} tools for query '{}'", tool_names.len(), query);
-
-    if tool_names.is_empty() {
-        return Ok(vec![]);
-    }
-
-    // 3. graph에서 tool 정보 로드
-    let graph_tools = load_graph_tools(&graph_path)?;
-
-    // 4. LLM tool schema로 변환
-    let mut llm_tools = Vec::new();
-    for name in &tool_names {
-        if let Some(tool) = graph_tools.get(name) {
-            llm_tools.push(to_llm_tool_schema(tool));
-        }
-    }
-
-    Ok(llm_tools)
-}
-
-/// graph-tool-call call로 API 직접 실행
-pub async fn execute_tool_call(
-    tool_name: &str,
-    args: &Value,
-    openapi_source: &str,
-    base_url: &str,
-    auth_token: Option<&str>,
-) -> Result<Value> {
-    let bin = find_binary()?;
-
-    let args_str = serde_json::to_string(args).unwrap_or_default();
-
-    let mut cmd = tokio::process::Command::new(&bin);
-    cmd.args([
-        "call", tool_name,
-        "-s", openapi_source,
-        "--base-url", base_url,
-        "--tool", tool_name,
-        "--allow-private-hosts",
-    ]);
-
-    if let Some(token) = auth_token {
-        log::info!("execute_tool_call: auth token present ({}...)", &token[..token.len().min(20)]);
-        cmd.args(["--auth-token", token]);
-    } else {
-        log::warn!("execute_tool_call: NO auth token — API calls requiring auth will fail");
-    }
-
-    if !args_str.is_empty() && args_str != "{}" && args_str != "null" {
-        cmd.args(["--args", &args_str]);
-    }
-
-    let output = cmd.output().await
-        .map_err(|e| AppError::Cli(format!("call failed: {}", e)))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AppError::Cli(format!("call failed: {}\n{}", stderr, stdout)));
-    }
-
-    // graph-tool-call call 출력: JSON (status, headers, body)
-    match serde_json::from_str::<Value>(&stdout) {
-        Ok(v) => Ok(v.get("body").cloned().unwrap_or(v)),
-        Err(_) => Ok(Value::String(stdout.to_string())),
-    }
 }

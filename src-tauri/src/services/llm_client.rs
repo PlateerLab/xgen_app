@@ -14,7 +14,7 @@ use crate::services::XgenApiClient;
 use crate::services::xgen_api::LlmProviderConfig;
 use crate::services::tool_search;
 
-const MAX_TOOL_ROUNDS: usize = 5;
+const MAX_TOOL_ROUNDS: usize = 10;
 
 /// LLM API client — multi-provider support
 pub struct LlmClient {
@@ -76,20 +76,20 @@ impl LlmClient {
 
     fn system_prompt() -> &'static str {
         r#"당신은 XGEN AI 플랫폼 어시스턴트입니다.
-사용자의 요청에 따라 XGEN API를 호출하여 워크플로우 관리, 실행, 모니터링 등을 수행합니다.
 
-역할:
-- 워크플로우 목록 조회, 생성, 실행, 삭제
-- 스케줄 생성 및 관리
-- 노드/도구/LLM 상태 확인
-- 문서 검색 및 RAG
-- 사용자 질문에 친절하게 답변
+도구 사용 규칙:
+1. 사용자 요청을 처리하려면 먼저 search_tools로 관련 API를 검색하세요.
+   - 검색 쿼리는 반드시 영문 키워드로 작성하세요 (예: "execute workflow", "list agents", "create schedule").
+   - 한국어 요청이라도 영문으로 변환하여 검색하세요.
+   - 검색 결과가 부족하면 다른 키워드로 다시 검색하세요.
+2. 검색 결과에서 적절한 tool을 선택하고, call_tool로 호출하세요.
+   - tool_name은 검색 결과의 정확한 이름을 사용하세요.
+   - arguments는 검색 결과의 파라미터 스키마에 맞게 구성하세요.
+3. 일반 질문이나 tool이 필요 없는 경우에는 직접 답변하세요.
 
-tool 호출 결과를 사용자에게 보기 좋게 정리해서 한국어로 답변하세요.
-JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
-
-주어진 tool 중에서 사용자 요청에 가장 적합한 것을 선택하세요.
-적합한 tool이 없으면 tool을 호출하지 말고 직접 답변하세요."#
+응답 규칙:
+- API 결과는 핵심 정보만 추려서 한국어로 읽기 쉽게 정리하세요.
+- JSON을 그대로 보여주지 마세요."#
     }
 
     // ============================================================
@@ -633,26 +633,14 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
         messages: &mut Vec<ChatMessage>,
         xgen_api: &XgenApiClient,
     ) -> Result<String> {
-        // 사용자 메시지에서 쿼리 추출하여 관련 tool 동적 검색
-        let user_query = messages.last()
-            .and_then(|m| m.content.as_str())
-            .unwrap_or("help");
-
         let openapi_source = format!("{}/api/openapi", xgen_api.base_url());
-        let tools = match tool_search::search_tools_for_llm(user_query, &openapi_source, Some(7)).await {
-            Ok(t) if !t.is_empty() => {
-                println!("  [tools] Found {} dynamic tools for '{}'", t.len(), user_query);
-                t
-            }
-            Ok(_) | Err(_) => {
-                println!("  [tools] Fallback to hardcoded tools");
-                XgenApiClient::tool_definitions()
-            }
-        };
+
+        // Gateway mode: 고정 meta-tool 2개
+        let tools = tool_search::meta_tool_definitions();
         let mut final_text = String::new();
 
         for round in 0..MAX_TOOL_ROUNDS {
-            println!("[CLI test] round {}/{} ({})", round + 1, MAX_TOOL_ROUNDS, self.config.provider);
+            println!("[CLI test] gateway round {}/{} ({})", round + 1, MAX_TOOL_ROUNDS, self.config.provider);
 
             let response = self.call_anthropic_nostream(messages, &tools).await?;
 
@@ -674,29 +662,36 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
                         let tool_name = block["name"].as_str().unwrap_or("");
                         let tool_input = block["input"].clone();
 
-                        println!("  [tool] {} → {:?}", tool_name, tool_input);
+                        println!("  [gateway] {} → {:?}", tool_name, tool_input);
 
-                        // graph-tool-call call로 실행 (OpenAPI 기반 동적 실행)
-                        let result = match tool_search::execute_tool_call(
-                            tool_name,
-                            &tool_input,
-                            &openapi_source,
-                            xgen_api.base_url(),
-                            xgen_api.auth_token(),
-                        ).await {
-                            Ok(v) => {
-                                let s = serde_json::to_string_pretty(&v).unwrap_or_default();
-                                println!("  [result] {}...", s.chars().take(200).collect::<String>());
-                                s
-                            },
-                            Err(e) => {
-                                // fallback: xgen_api.execute_tool
-                                println!("  [graph-tool-call fallback] {}", e);
-                                match xgen_api.execute_tool(tool_name, tool_input.clone()).await {
-                                    Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
-                                    Err(e2) => format!("Error: {}", e2),
+                        let result = match tool_name {
+                            "search_tools" => {
+                                let query = tool_input["query"].as_str().unwrap_or("help");
+                                let top_k = tool_input["top_k"].as_u64().map(|v| v as usize);
+                                match tool_search::search_tools_text(query, &openapi_source, top_k).await {
+                                    Ok(text) => {
+                                        println!("  [search] {}...", text.chars().take(200).collect::<String>());
+                                        text
+                                    }
+                                    Err(e) => format!("Search error: {}", e),
                                 }
-                            },
+                            }
+                            "call_tool" => {
+                                let actual_tool = tool_input["tool_name"].as_str().unwrap_or("");
+                                let args = tool_input.get("arguments").cloned().unwrap_or(serde_json::json!({}));
+                                match tool_search::execute_tool_call(
+                                    actual_tool, &args, &openapi_source,
+                                    xgen_api.base_url(), xgen_api.auth_token(),
+                                ).await {
+                                    Ok(v) => {
+                                        let s = serde_json::to_string_pretty(&v).unwrap_or_default();
+                                        println!("  [call] {}...", s.chars().take(200).collect::<String>());
+                                        s
+                                    }
+                                    Err(e) => format!("Call error: {}", e),
+                                }
+                            }
+                            _ => format!("Unknown tool: {}", tool_name),
                         };
 
                         tool_results.push(serde_json::json!({
@@ -752,26 +747,14 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
         session_id: &str,
         app: &AppHandle,
     ) -> Result<String> {
-        // 동적 tool 검색
-        let user_query = messages.last()
-            .and_then(|m| m.content.as_str())
-            .unwrap_or("help");
-
         let openapi_source = format!("{}/api/openapi", xgen_api.base_url());
-        let tools = match tool_search::search_tools_for_llm(user_query, &openapi_source, Some(7)).await {
-            Ok(t) if !t.is_empty() => {
-                log::info!("Found {} dynamic tools for '{}'", t.len(), user_query);
-                t
-            }
-            Ok(_) | Err(_) => {
-                log::warn!("Fallback to hardcoded tools");
-                XgenApiClient::tool_definitions()
-            }
-        };
+
+        // Gateway mode: 고정 meta-tool 2개 (search_tools + call_tool)
+        let tools = tool_search::meta_tool_definitions();
         let mut final_text = String::new();
 
         for round in 0..MAX_TOOL_ROUNDS {
-            log::info!("CLI [{}] tool use round {}/{}", self.config.provider, round + 1, MAX_TOOL_ROUNDS);
+            log::info!("CLI [{}] gateway round {}/{}", self.config.provider, round + 1, MAX_TOOL_ROUNDS);
 
             let response = self.call_stream(messages, &tools, session_id, app).await?;
 
@@ -793,7 +776,7 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
                         let tool_name = block["name"].as_str().unwrap_or("");
                         let tool_input = block["input"].clone();
 
-                        log::info!("Executing tool: {}", tool_name);
+                        log::info!("Gateway dispatch: {} (id: {})", tool_name, tool_id);
 
                         let _ = app.emit("cli:event", CliStreamEvent {
                             session_id: session_id.to_string(),
@@ -801,21 +784,28 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
                             data: serde_json::json!({"id":tool_id,"name":tool_name,"input":tool_input}),
                         });
 
-                        let result = match tool_search::execute_tool_call(
-                            tool_name,
-                            &tool_input,
-                            &openapi_source,
-                            xgen_api.base_url(),
-                            xgen_api.auth_token(),
-                        ).await {
-                            Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
-                            Err(e) => {
-                                log::warn!("graph-tool-call fallback: {}", e);
-                                match xgen_api.execute_tool(tool_name, tool_input).await {
-                                    Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
-                                    Err(e2) => format!("Error: {}", e2),
+                        // Meta-tool dispatch
+                        let result = match tool_name {
+                            "search_tools" => {
+                                let query = tool_input["query"].as_str().unwrap_or("help");
+                                let top_k = tool_input["top_k"].as_u64().map(|v| v as usize);
+                                match tool_search::search_tools_text(query, &openapi_source, top_k).await {
+                                    Ok(text) => text,
+                                    Err(e) => format!("Search error: {}", e),
                                 }
                             }
+                            "call_tool" => {
+                                let actual_tool = tool_input["tool_name"].as_str().unwrap_or("");
+                                let args = tool_input.get("arguments").cloned().unwrap_or(serde_json::json!({}));
+                                match tool_search::execute_tool_call(
+                                    actual_tool, &args, &openapi_source,
+                                    xgen_api.base_url(), xgen_api.auth_token(),
+                                ).await {
+                                    Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
+                                    Err(e) => format!("Call error: {}", e),
+                                }
+                            }
+                            _ => format!("Unknown tool: {}", tool_name),
                         };
 
                         let _ = app.emit("cli:event", CliStreamEvent {
@@ -832,7 +822,7 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
                     }
                 }
 
-                // Validate: every tool_use must have a matching tool_result
+                // Safety: ensure all tool_use IDs have matching tool_results
                 let tool_use_ids: Vec<String> = content.iter()
                     .filter(|b| b["type"].as_str() == Some("tool_use"))
                     .filter_map(|b| b["id"].as_str().map(|s| s.to_string()))
@@ -840,9 +830,7 @@ JSON 결과는 핵심 정보만 추려서 읽기 쉽게 정리하세요.
                 let tool_result_ids: Vec<String> = tool_results.iter()
                     .filter_map(|r| r["tool_use_id"].as_str().map(|s| s.to_string()))
                     .collect();
-                log::info!("tool_use IDs: {:?}, tool_result IDs: {:?}", tool_use_ids, tool_result_ids);
 
-                // Safety: add placeholder tool_result for any missing IDs
                 for use_id in &tool_use_ids {
                     if !tool_result_ids.contains(use_id) {
                         log::warn!("Missing tool_result for tool_use_id: {}", use_id);

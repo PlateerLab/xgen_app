@@ -369,7 +369,14 @@ listen('cli:event', (event) => {
         }
         const tc = document.createElement('span');
         tc.className = 'tool-call';
-        tc.textContent = `⚡ ${data.name}`;
+        const name = data.name || '';
+        if (name === 'search_tools') {
+          tc.textContent = `🔍 ${data.input?.query || 'searching...'}`;
+        } else if (name === 'call_tool') {
+          tc.textContent = `⚡ ${data.input?.tool_name || 'calling...'}`;
+        } else {
+          tc.textContent = `⚡ ${name}`;
+        }
         toolsEl.appendChild(tc);
       }
       break;
