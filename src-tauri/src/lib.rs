@@ -28,9 +28,15 @@ async fn auto_init_app_mode(app: &tauri::AppHandle) -> Result<(), String> {
 
     let config_path = config_dir.join("settings.json");
 
-    // Check if settings file exists
+    // Check if settings file exists — 없으면 기본 Connected 모드 (xgen.x2bee.com)
     if !config_path.exists() {
-        log::info!("No settings file found, using default Standalone mode");
+        log::info!("No settings file found, defaulting to Connected mode (xgen.x2bee.com)");
+        let state = app.state::<Arc<AppState>>();
+        let default_url = "https://xgen.x2bee.com".to_string();
+        let mut mode = state.app_mode.write().await;
+        *mode = state::AppMode::Connected { server_url: default_url.clone() };
+        let mut gateway = state.gateway_url.write().await;
+        *gateway = Some(default_url);
         return Ok(());
     }
 
