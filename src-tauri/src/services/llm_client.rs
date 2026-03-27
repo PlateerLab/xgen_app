@@ -852,7 +852,7 @@ API 검색/호출:
                             "navigate" => {
                                 let path = tool_input["path"].as_str().unwrap_or("/");
                                 log::info!("navigate: {}", path);
-                                let _ = app.emit_to("main", "navigate", serde_json::json!({"path": path}));
+                                let _ = app.emit("navigate", serde_json::json!({"path": path}));
                                 format!("Navigated to {}", path)
                             }
                             // Canvas tools — 프론트엔드로 이벤트 전달 후 결과 대기
@@ -861,7 +861,7 @@ API 검색/호출:
                                 log::info!("canvas command: {} (req: {})", name, request_id);
 
                                 // 메인 윈도우에 canvas 명령 전달
-                                let _ = app.emit_to("main", "canvas:command", serde_json::json!({
+                                let _ = app.emit("canvas:command", serde_json::json!({
                                     "requestId": request_id,
                                     "action": name.strip_prefix("canvas_").unwrap_or(name),
                                     "params": tool_input,
