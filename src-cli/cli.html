@@ -9,48 +9,44 @@
 
 :root {
   --bg: #ffffff;
-  --bg-secondary: #f8f9fa;
-  --bg-msg-user: #e8f0fe;
+  --bg-secondary: #f5f5f5;
+  --bg-msg-user: #f0f0f0;
   --bg-msg-ai: #ffffff;
-  --bg-msg-system: #fff8e1;
+  --bg-msg-system: #fafafa;
   --bg-input: #ffffff;
-  --bg-header: #ffffff;
-  --bg-tool: #f0f4ff;
-  --border: #e0e0e0;
-  --border-input: #d0d0d0;
-  --text: #1a1a1a;
-  --text-secondary: #666666;
-  --text-tool: #4a6fa5;
-  --accent: #1a73e8;
-  --accent-hover: #1557b0;
-  --accent-light: #e8f0fe;
-  --green: #34a853;
-  --orange: #ea8600;
-  --shadow: 0 1px 3px rgba(0,0,0,0.08);
-  --shadow-msg: 0 1px 2px rgba(0,0,0,0.06);
+  --bg-header: #fafafa;
+  --bg-tool: #f5f5f5;
+  --border: #e5e5e5;
+  --border-input: #ddd;
+  --text: #222;
+  --text-secondary: #888;
+  --text-tool: #666;
+  --accent: #555;
+  --accent-hover: #333;
+  --accent-light: #f0f0f0;
+  --shadow: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-msg: none;
 }
 
 .dark {
-  --bg: #1e1e1e;
-  --bg-secondary: #252525;
-  --bg-msg-user: #2a3a4a;
-  --bg-msg-ai: #252525;
-  --bg-msg-system: #2a2a1e;
-  --bg-input: #2a2a2a;
-  --bg-header: #252525;
-  --bg-tool: #1e2a3a;
-  --border: #383838;
+  --bg: #1a1a1a;
+  --bg-secondary: #222;
+  --bg-msg-user: #2a2a2a;
+  --bg-msg-ai: #222;
+  --bg-msg-system: #252520;
+  --bg-input: #252525;
+  --bg-header: #222;
+  --bg-tool: #2a2a2a;
+  --border: #333;
   --border-input: #444;
-  --text: #e0e0e0;
-  --text-secondary: #999;
-  --text-tool: #7aacff;
-  --accent: #5b9cf6;
-  --accent-hover: #7ab4ff;
-  --accent-light: #1e2a3a;
-  --green: #66bb6a;
-  --orange: #ffb74d;
-  --shadow: 0 1px 3px rgba(0,0,0,0.3);
-  --shadow-msg: 0 1px 2px rgba(0,0,0,0.2);
+  --text: #ddd;
+  --text-secondary: #888;
+  --text-tool: #999;
+  --accent: #aaa;
+  --accent-hover: #ccc;
+  --accent-light: #2a2a2a;
+  --shadow: none;
+  --shadow-msg: none;
 }
 
 body {
@@ -70,36 +66,27 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
+  padding: 8px 16px;
   background: var(--bg-header);
   border-bottom: 1px solid var(--border);
-  box-shadow: var(--shadow);
   -webkit-user-select: none;
   user-select: none;
   z-index: 10;
 }
 .header-left { display: flex; align-items: center; gap: 10px; }
-.header-logo {
-  width: 24px; height: 24px;
-  background: var(--accent);
-  border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  color: white; font-weight: 700; font-size: 12px;
-}
-.header-title { font-weight: 600; font-size: 15px; color: var(--text); }
+.header-title { font-weight: 600; font-size: 14px; color: var(--text); letter-spacing: -0.3px; }
 .header-controls { display: flex; align-items: center; gap: 6px; }
 
 select {
   background: var(--bg-input);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--text);
-  font-size: 12px;
+  font-size: 11px;
   font-family: inherit;
-  padding: 4px 8px;
+  padding: 3px 6px;
   outline: none;
   cursor: pointer;
-  transition: border-color 0.15s;
 }
 select:focus { border-color: var(--accent); }
 
@@ -108,9 +95,9 @@ select:focus { border-color: var(--accent); }
   border: 1px solid var(--border);
   color: var(--text-secondary);
   cursor: pointer;
-  width: 30px; height: 30px;
-  border-radius: 6px;
-  font-size: 14px;
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  font-size: 13px;
   display: flex; align-items: center; justify-content: center;
   transition: all 0.15s;
 }
@@ -123,228 +110,178 @@ select:focus { border-color: var(--accent); }
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  background: var(--bg-secondary);
+  gap: 12px;
+  background: var(--bg);
 }
-.messages::-webkit-scrollbar { width: 5px; }
+.messages::-webkit-scrollbar { width: 4px; }
 .messages::-webkit-scrollbar-track { background: transparent; }
-.messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
 .msg { display: flex; gap: 10px; max-width: 100%; }
 .msg-user { justify-content: flex-end; }
 .msg-assistant, .msg-system { justify-content: flex-start; }
 
 .msg-avatar {
-  width: 28px; height: 28px;
-  border-radius: 50%;
+  width: 24px; height: 24px;
+  border-radius: 4px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 600;
+  font-size: 11px; font-weight: 600;
   flex-shrink: 0;
 }
-.msg-user .msg-avatar { background: var(--accent); color: white; }
-.msg-assistant .msg-avatar { background: var(--green); color: white; }
-.msg-system .msg-avatar { background: var(--orange); color: white; font-size: 11px; }
+.msg-user .msg-avatar { background: var(--bg-msg-user); color: var(--text-secondary); }
+.msg-assistant .msg-avatar { background: var(--bg-secondary); color: var(--text-secondary); }
+.msg-system .msg-avatar { background: var(--bg-msg-system); color: var(--text-secondary); }
 
 .msg-bubble {
-  max-width: 85%;
+  max-width: 88%;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .msg-content {
-  padding: 10px 14px;
-  border-radius: 12px;
-  line-height: 1.65;
-  box-shadow: var(--shadow-msg);
+  padding: 8px 12px;
+  border-radius: 8px;
+  line-height: 1.6;
   word-break: break-word;
+  font-size: 13.5px;
 }
 .msg-user .msg-content {
-  background: var(--accent);
-  color: white;
-  border-bottom-right-radius: 4px;
+  background: var(--bg-msg-user);
+  color: var(--text);
+  border-bottom-right-radius: 2px;
 }
 .msg-assistant .msg-content {
   background: var(--bg-msg-ai);
   border: 1px solid var(--border);
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 2px;
 }
 .msg-system .msg-content {
   background: var(--bg-msg-system);
-  border: 1px solid #e8d5a0;
-  font-size: 13px;
+  border: 1px solid var(--border);
+  font-size: 12px;
   color: var(--text-secondary);
-  border-radius: 8px;
 }
-.dark .msg-system .msg-content { border-color: #4a4a2e; }
 
-/* Markdown in AI responses */
-.msg-assistant .msg-content h1,
-.msg-assistant .msg-content h2,
-.msg-assistant .msg-content h3 {
-  margin: 12px 0 6px 0;
+/* Markdown */
+.msg-content h1, .msg-content h2, .msg-content h3 {
+  margin: 10px 0 4px 0;
   font-weight: 600;
   line-height: 1.3;
 }
-.msg-assistant .msg-content h1 { font-size: 16px; }
-.msg-assistant .msg-content h2 { font-size: 15px; color: var(--accent); }
-.msg-assistant .msg-content h3 { font-size: 14px; }
+.msg-content h1 { font-size: 15px; }
+.msg-content h2 { font-size: 14px; }
+.msg-content h3 { font-size: 13.5px; }
+.msg-content p { margin: 3px 0; }
+.msg-content ul, .msg-content ol { margin: 4px 0; padding-left: 18px; }
+.msg-content li { margin: 1px 0; }
+.msg-content strong { font-weight: 600; }
 
-.msg-assistant .msg-content p { margin: 4px 0; }
-
-.msg-assistant .msg-content ul,
-.msg-assistant .msg-content ol {
-  margin: 4px 0;
-  padding-left: 20px;
-}
-.msg-assistant .msg-content li { margin: 2px 0; }
-
-.msg-assistant .msg-content code {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
+.msg-content code {
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
   font-size: 12px;
   background: var(--accent-light);
-  padding: 1px 5px;
-  border-radius: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
 }
-.msg-assistant .msg-content pre {
-  margin: 8px 0;
+.msg-content pre {
+  margin: 6px 0;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: 6px;
+  padding: 8px 10px;
   overflow-x: auto;
 }
-.msg-assistant .msg-content pre code {
+.msg-content pre code {
   background: none;
   padding: 0;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.45;
 }
-
-.msg-assistant .msg-content strong { font-weight: 600; }
-
-.msg-assistant .msg-content table {
+.msg-content table {
   border-collapse: collapse;
-  margin: 8px 0;
-  font-size: 13px;
+  margin: 6px 0;
+  font-size: 12px;
   width: 100%;
 }
-.msg-assistant .msg-content th,
-.msg-assistant .msg-content td {
+.msg-content th, .msg-content td {
   border: 1px solid var(--border);
-  padding: 4px 8px;
+  padding: 3px 6px;
   text-align: left;
 }
-.msg-assistant .msg-content th {
-  background: var(--bg-secondary);
-  font-weight: 600;
-}
+.msg-content th { background: var(--bg-secondary); font-weight: 600; }
 
 /* Tool calls */
-.tool-calls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 0 4px;
-}
+.tool-calls { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 2px; }
 .tool-call {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
+  gap: 3px;
+  padding: 2px 8px;
   background: var(--bg-tool);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 4px;
   font-size: 11px;
   color: var(--text-tool);
-  font-weight: 500;
-  transition: opacity 0.2s;
 }
-.tool-call.loading {
-  animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
+.tool-call.loading { animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-/* Typing indicator */
-.typing-dots {
-  display: inline-flex;
-  gap: 3px;
-  padding: 4px 0;
-}
+/* Typing */
+.typing-dots { display: inline-flex; gap: 3px; padding: 2px 0; }
 .typing-dots span {
-  width: 6px; height: 6px;
+  width: 5px; height: 5px;
   background: var(--text-secondary);
   border-radius: 50%;
   animation: bounce 1.4s infinite;
 }
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes bounce {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-  40% { transform: scale(1); opacity: 1; }
-}
+@keyframes bounce { 0%,80%,100%{transform:scale(0.6);opacity:0.3} 40%{transform:scale(1);opacity:1} }
 
 /* Input */
 .input-area {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 10px 16px;
   background: var(--bg);
   border-top: 1px solid var(--border);
 }
-.input-wrapper {
-  flex: 1;
-  position: relative;
-}
 textarea {
-  width: 100%;
+  flex: 1;
   background: var(--bg-input);
   border: 1px solid var(--border-input);
-  border-radius: 12px;
+  border-radius: 8px;
   color: var(--text);
-  padding: 10px 14px;
+  padding: 8px 12px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13.5px;
   resize: none;
-  min-height: 42px;
+  min-height: 38px;
   max-height: 120px;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s;
 }
-textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(26,115,232,0.1);
-}
+textarea:focus { border-color: var(--accent); }
 textarea::placeholder { color: var(--text-secondary); }
-textarea:disabled { opacity: 0.5; }
+textarea:disabled { opacity: 0.4; }
 
 .send-btn {
-  background: var(--accent);
+  background: var(--text);
   border: none;
-  color: white;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  color: var(--bg);
+  width: 38px; height: 38px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s, transform 0.1s;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.15s;
 }
-.send-btn:hover:not(:disabled) { background: var(--accent-hover); transform: scale(1.05); }
-.send-btn:active:not(:disabled) { transform: scale(0.95); }
-.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.send-btn:hover:not(:disabled) { opacity: 0.8; }
+.send-btn:disabled { opacity: 0.2; cursor: not-allowed; }
 
-/* Drag region */
-.drag-region {
-  -webkit-app-region: drag;
-  flex: 1;
-}
+.drag-region { -webkit-app-region: drag; flex: 1; }
 .header button, .header select { -webkit-app-region: no-drag; }
 </style>
 </head>
@@ -352,26 +289,21 @@ textarea:disabled { opacity: 0.5; }
 
 <div class="header">
   <div class="header-left">
-    <div class="header-logo">X</div>
     <span class="header-title">XGEN AI</span>
     <span class="drag-region"></span>
   </div>
   <div class="header-controls">
     <select id="providerSelect" disabled></select>
     <button class="icon-btn" onclick="toggleTheme()" title="테마 전환" id="themeBtn">☀</button>
-    <button class="icon-btn" onclick="clearSession()" title="세션 초기화">↺</button>
+    <button class="icon-btn" onclick="clearSession()" title="초기화">↺</button>
   </div>
 </div>
 
 <div class="messages" id="messages"></div>
 
 <div class="input-area">
-  <div class="input-wrapper">
-    <textarea id="input" rows="1" placeholder="무엇을 도와드릴까요?" autofocus></textarea>
-  </div>
-  <button class="send-btn" id="sendBtn" onclick="sendMessage()">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-  </button>
+  <textarea id="input" rows="1" placeholder="무엇을 도와드릴까요?" autofocus></textarea>
+  <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
 </div>
 
 <script type="module">
@@ -396,73 +328,48 @@ function toggleTheme() {
   themeBtn.textContent = isDark ? '☾' : '☀';
   localStorage.setItem('xgen-theme', isDark ? 'dark' : 'light');
 }
-// Restore theme
 if (localStorage.getItem('xgen-theme') === 'dark') {
   document.body.classList.add('dark');
   themeBtn.textContent = '☾';
 }
 
-// ── Markdown renderer (lightweight) ──
+// ── Markdown ──
 function renderMarkdown(text) {
   if (!text) return '';
   let html = text
-    // Code blocks
     .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="lang-$1">$2</code></pre>')
-    // Inline code
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // Headers
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h2>$1</h2>')
     .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    // Bold
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Unordered lists
     .replace(/^- (.+)$/gm, '<li>$1</li>')
-    // Ordered lists
     .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-    // Tables
-    .replace(/\|(.+)\|/g, (match) => {
-      const cells = match.split('|').filter(c => c.trim());
-      if (cells.every(c => /^[-:]+$/.test(c.trim()))) return '';
-      const tag = match.includes('---') ? 'th' : 'td';
-      return '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
-    })
-    // Line breaks (but not inside pre/code)
     .replace(/\n/g, '<br>');
-
-  // Wrap consecutive <li> in <ul>
-  html = html.replace(/((?:<li>.*?<\/li><br>?)+)/g, (match) => {
-    return '<ul>' + match.replace(/<br>/g, '') + '</ul>';
-  });
-  // Wrap <tr> in <table>
-  html = html.replace(/((?:<tr>.*?<\/tr>)+)/g, '<table>$1</table>');
-  // Clean up double <br> after block elements
+  html = html.replace(/((?:<li>.*?<\/li><br>?)+)/g, (m) => '<ul>' + m.replace(/<br>/g, '') + '</ul>');
   html = html.replace(/(<\/h[123]>|<\/pre>|<\/ul>|<\/table>)<br>/g, '$1');
-
   return html;
 }
 
-// ── Auth token ──
+// ── Token ──
 function getTokenSync() {
   if (cachedToken) return cachedToken;
   const params = new URLSearchParams(window.location.search);
-  const paramToken = params.get('token');
-  if (paramToken) { cachedToken = paramToken; return paramToken; }
-  const match = document.cookie.match(/(^| )access_token=([^;]+)/);
-  const cookieToken = match ? decodeURIComponent(match[2]) : null;
-  if (cookieToken) { cachedToken = cookieToken; return cookieToken; }
+  const p = params.get('token');
+  if (p) { cachedToken = p; return p; }
+  const m = document.cookie.match(/(^| )access_token=([^;]+)/);
+  const c = m ? decodeURIComponent(m[2]) : null;
+  if (c) { cachedToken = c; return c; }
   return null;
 }
-
 async function getToken() {
-  const syncToken = getTokenSync();
-  if (syncToken) return syncToken;
+  const s = getTokenSync();
+  if (s) return s;
   try {
-    const rustToken = await invoke('cli_get_token');
-    if (rustToken) { cachedToken = rustToken; return rustToken; }
-  } catch (e) {}
+    const t = await invoke('cli_get_token');
+    if (t) { cachedToken = t; return t; }
+  } catch {}
   return null;
 }
 
@@ -475,24 +382,23 @@ async function loadProviders() {
     providerSelect.innerHTML = available.map(p =>
       `<option value="${p.name}">${p.name} (${p.model})</option>`
     ).join('');
-    if (providerSelect.querySelector('option[value="anthropic"]')) {
+    if (providerSelect.querySelector('option[value="anthropic"]'))
       providerSelect.value = 'anthropic';
-    }
     providerSelect.disabled = false;
-  } catch (e) {
+  } catch {
     providerSelect.innerHTML = '<option>anthropic</option>';
     providerSelect.disabled = false;
   }
 }
 
-// ── Message UI ──
+// ── Messages ──
 function addMessage(role, content) {
   const msg = document.createElement('div');
   msg.className = `msg msg-${role}`;
 
   const avatar = document.createElement('div');
   avatar.className = 'msg-avatar';
-  avatar.textContent = role === 'user' ? 'U' : role === 'assistant' ? 'AI' : '!';
+  avatar.textContent = role === 'user' ? 'U' : role === 'assistant' ? 'AI' : 'i';
 
   const bubble = document.createElement('div');
   bubble.className = 'msg-bubble';
@@ -500,35 +406,27 @@ function addMessage(role, content) {
   const contentEl = document.createElement('div');
   contentEl.className = 'msg-content';
 
-  if (role === 'assistant' && content) {
-    contentEl.innerHTML = renderMarkdown(content);
-  } else if (role === 'assistant' && !content) {
-    // Typing indicator
+  if (role === 'assistant' && !content) {
     contentEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+  } else if (role === 'assistant' && content) {
+    contentEl.innerHTML = renderMarkdown(content);
   } else {
     contentEl.textContent = content || '';
   }
 
   bubble.appendChild(contentEl);
-
-  if (role === 'user') {
-    msg.appendChild(bubble);
-    msg.appendChild(avatar);
-  } else {
-    msg.appendChild(avatar);
-    msg.appendChild(bubble);
-  }
+  if (role === 'user') { msg.appendChild(bubble); msg.appendChild(avatar); }
+  else { msg.appendChild(avatar); msg.appendChild(bubble); }
 
   messagesEl.appendChild(msg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return contentEl;
 }
 
-// ── Send message ──
+// ── Send ──
 window.sendMessage = async function() {
   const text = inputEl.value.trim();
   if (!text || isLoading) return;
-
   inputEl.value = '';
   inputEl.style.height = 'auto';
   isLoading = true;
@@ -541,11 +439,7 @@ window.sendMessage = async function() {
 
   try {
     const token = await getToken();
-    await invoke('cli_send_message', {
-      message: text,
-      xgenToken: token,
-      provider: providerSelect.value,
-    });
+    await invoke('cli_send_message', { message: text, xgenToken: token, provider: providerSelect.value });
   } catch (e) {
     addMessage('system', `오류: ${e}`);
     finishLoading();
@@ -556,12 +450,10 @@ window.clearSession = async function() {
   try {
     await invoke('cli_clear_session');
     messagesEl.innerHTML = '';
-    addMessage('system', '세션이 초기화되었습니다.');
-  } catch (e) { console.error(e); }
+  } catch {}
 };
 
 function finishLoading() {
-  // Render final markdown
   if (currentStreamEl && streamingText) {
     currentStreamEl.innerHTML = renderMarkdown(streamingText);
   }
@@ -572,25 +464,32 @@ function finishLoading() {
   currentStreamEl = null;
 }
 
-// ── Streaming events ──
+// ── Debounced markdown render during streaming ──
+let renderTimer = null;
+function scheduleRender() {
+  if (renderTimer) return;
+  renderTimer = setTimeout(() => {
+    if (currentStreamEl && streamingText) {
+      currentStreamEl.innerHTML = renderMarkdown(streamingText);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    renderTimer = null;
+  }, 150);
+}
+
+// ── Events ──
 listen('cli:event', (event) => {
   const { eventType, data } = event.payload;
-
   switch (eventType) {
     case 'token':
       streamingText += (typeof data === 'string' ? data : '');
-      if (currentStreamEl) {
-        // Show raw text while streaming, render markdown on done
-        currentStreamEl.textContent = streamingText;
-      }
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      scheduleRender();
       break;
 
     case 'tool_call_start':
     case 'tool_call':
-      if (currentStreamEl && currentStreamEl.parentElement) {
-        let bubble = currentStreamEl.closest('.msg-bubble');
-        if (!bubble) bubble = currentStreamEl.parentElement;
+      if (currentStreamEl) {
+        let bubble = currentStreamEl.closest('.msg-bubble') || currentStreamEl.parentElement;
         let toolsEl = bubble.querySelector('.tool-calls');
         if (!toolsEl) {
           toolsEl = document.createElement('div');
@@ -600,27 +499,19 @@ listen('cli:event', (event) => {
         const tc = document.createElement('span');
         tc.className = 'tool-call loading';
         const name = data.name || '';
-        if (name === 'search_tools') {
-          tc.textContent = `🔍 ${data.input?.query || 'searching...'}`;
-        } else if (name === 'call_tool') {
-          tc.textContent = `⚡ ${data.input?.tool_name || 'calling...'}`;
-        } else if (name === 'navigate') {
-          tc.textContent = `📄 ${data.input?.path || ''}`;
-        } else if (name.startsWith('canvas_')) {
-          tc.textContent = `🎨 ${name.replace('canvas_', '')}`;
-        } else {
-          tc.textContent = `⚙ ${name}`;
-        }
+        if (name === 'search_tools') tc.textContent = `🔍 ${data.input?.query || '...'}`;
+        else if (name === 'call_tool') tc.textContent = `⚡ ${data.input?.tool_name || '...'}`;
+        else if (name === 'navigate') tc.textContent = `→ ${data.input?.path || ''}`;
+        else if (name.startsWith('canvas_')) tc.textContent = `◻ ${name.replace('canvas_','')}`;
+        else tc.textContent = name;
         toolsEl.appendChild(tc);
       }
       break;
 
     case 'tool_result':
-      // Stop loading animation on tool calls
       if (currentStreamEl) {
         const bubble = currentStreamEl.closest('.msg-bubble') || currentStreamEl.parentElement;
-        const toolCalls = bubble?.querySelectorAll('.tool-call.loading');
-        if (toolCalls) toolCalls.forEach(tc => tc.classList.remove('loading'));
+        bubble?.querySelectorAll('.tool-call.loading').forEach(t => t.classList.remove('loading'));
       }
       break;
 
@@ -638,25 +529,18 @@ listen('cli:event', (event) => {
   }
 });
 
-// ── Input ──
 inputEl.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    window.sendMessage();
-  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.sendMessage(); }
 });
-
 inputEl.addEventListener('input', () => {
   inputEl.style.height = 'auto';
   inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
 });
 
-// ── Initialize ──
+// ── Init ──
 (async () => {
-  const initToken = await getToken();
-  if (!initToken) {
-    addMessage('system', '인증 토큰이 없습니다. 로그인 후 다시 열어주세요.');
-  }
+  const t = await getToken();
+  if (!t) addMessage('system', '인증 토큰이 없습니다. 로그인 후 다시 열어주세요.');
   loadProviders();
 })();
 </script>
